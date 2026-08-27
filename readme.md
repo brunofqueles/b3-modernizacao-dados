@@ -10,13 +10,18 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy
 - [x] Teste de conectividade do Databricks Free Edition (API externa + GitHub)
 - [x] ADR-01: decisão de ingestão independente via Volume UC
-- [ ] Volume UC + tabela Bronze
+- [x] ADR-02: parametrização via Widgets e escrita idempotente na Landing Zone
+- [x] Catalog `poc_b3_modernizacao` e schemas por camada (landing, bronze, silver, gold), com tags e descrição
+- [x] Volume UC (`landing.raw`) + notebook de ingestão parametrizado (`01_ingestao_landing`)
+- [ ] Tabela Bronze
 - [ ] Silver (tipagem, deduplicação, regra de qualidade)
 - [ ] Gold (cálculo do índice-proxy em PySpark/SQL)
 - [ ] Orquestração via Databricks Workflows
 - [ ] Reconciliação Gold vs. KNIME
 - [ ] Diagrama de arquitetura final
 - [ ] Lições aprendidas
+
+> **Nota sobre a janela de reconciliação:** a comparação histórica entre KNIME e Databricks cobre **27/08, 28/08 e 31/08** (não 26/08) — a infraestrutura Databricks só foi criada em 27/08, e a API não permite obter retroativamente o preço de um dia anterior. Detalhe completo em `docs/architecture.md`.
 
 ## Objetivo
 
