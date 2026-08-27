@@ -11,9 +11,10 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Teste de conectividade do Databricks Free Edition (API externa + GitHub)
 - [x] ADR-01: decisão de ingestão independente via Volume UC
 - [x] ADR-02: parametrização via Widgets e escrita idempotente na Landing Zone
+- [x] ADR-03: escrita idempotente na Bronze via MERGE e coluna de validação de integridade
 - [x] Catalog `poc_b3_modernizacao` e schemas por camada (landing, bronze, silver, gold), com tags e descrição
 - [x] Volume UC (`landing.raw`) + notebook de ingestão parametrizado (`01_ingestao_landing`)
-- [ ] Tabela Bronze
+- [x] Tabela Bronze (`bronze.cotacoes`), com MERGE idempotente e coluna de validação de integridade
 - [ ] Silver (tipagem, deduplicação, regra de qualidade)
 - [ ] Gold (cálculo do índice-proxy em PySpark/SQL)
 - [ ] Orquestração via Databricks Workflows

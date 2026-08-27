@@ -93,30 +93,48 @@ Itens abaixo são **roadmap reconhecido**, não decisões já tomadas — não i
 - **Observabilidade do pipeline**: hoje o pipeline não registra suas próprias execuções — uma falha ou uma sobrescrita indevida (ver riscos, seção 6) não deixa rastro. Evolução: tabela de log de execução (`pipeline_runs` ou similar) respondendo a três perguntas — o pipeline quebrou? quando? por quê? — usando o campo `modo_execucao` já presente no notebook de ingestão como um dos insumos.
 - **Reconciliação automatizada com alerta de divergência**: a reconciliação básica (Gold vs. KNIME, contagem de linhas e valor do índice) é escopo core do projeto, mas hoje seria uma comparação manual em notebook. Evolução: alertar automaticamente *quando* e *quais* valores divergem entre as duas implementações, não apenas apresentar o número final para leitura manual.
 - **Governança de acesso (RBAC)**: modelo pretendido — arquitetos com acesso completo a todas as camadas; engenharia limitada a Bronze e Silver; negócio limitado a Silver. A camada Gold seria gerada exclusivamente de forma automatizada via Job (nunca editada manualmente), especificamente para eliminar divergência de números entre diferentes consumidores do dado. Documentado aqui como modelo pretendido — não implementado com RBAC real no Unity Catalog dentro do prazo do projeto.
-- **Escalabilidade**: caminho de 4 tickers para uma lista maior (ex.: 500 papéis, ou o pregão completo). Pontos que precisariam de revisão: paginação/rate limit da API `brapi.dev` em volume maior; o dropdown fixo de tickers no Widget (ver [ADR-02](adr/adr-02-widgets-idempotencia-landing.md)) precisaria virar uma fonte dinâmica (tabela de referência) em vez de lista codificada; volume de dados por camada e se a arquitetura atual aguenta o salto sem redesenho de particionamento.
+- **Escalabilidade**: caminho de 4 tickers para uma lista maior (ex.: 500 papéis, ou o pregão completo). Pontos que precisariam de revisão: paginação/rate limit da API `brapi.dev` em volume maior; o dropdown fixo de tickers no Widget (ver [ADR-02](adr/adr-02-widgets-idempotencia-landing.md)) precisaria virar uma fonte dinâmica (tabela de referência) em vez de lista codificada; volume de dados por camada e se a arquitetura atual aguenta o salto sem redesenho de particionamento. Nesse cenário de múltiplas fontes/sistemas, também passaria a fazer sentido avaliar **Programação Orientada a Objetos** (classe base de ingestão com subclasses por fonte) — decisão deliberadamente não adotada nesta fase, por não haver ainda repetição de estrutura real que justifique a abstração (projeto tem uma única fonte, uma única forma de ingestão).
 - Ampliação do índice-proxy para mais tickers ou ponderação por `marketCap`, caso o projeto seja retomado após a entrega.
 
-## 8. Status atual e próximos passos
+## 8. Perguntas de negócio e operacionais — o que o projeto já responde
+
+Registradas aqui deliberadamente, mesmo as que ainda não têm resposta plena pelo pipeline — mostrar honestamente o que está e o que não está coberto é parte da maturidade que o projeto pretende demonstrar.
+
+**Quais ações mais se valorizaram?**
+Ainda não respondível de forma confiável pelo Databricks — depende da camada Gold (comparação de `preco_atual` vs. `fechamento_anterior` por ticker), que ainda não existe. Informalmente calculável hoje a partir do CSV do KNIME (`retorno_diario`), mas isso não é o pipeline respondendo, é leitura manual de arquivo.
+
+**Quando podemos encerrar o fluxo do KNIME?**
+Já respondível conceitualmente: o KNIME existe exclusivamente para sustentar a reconciliação (prova de que a lógica de negócio foi preservada na migração). Pode ser formalmente encerrado após a conclusão e validação da janela de reconciliação de 3 dias (27/08, 28/08, 31/08) — a partir daí, não tem mais função no projeto.
+
+**O que usamos para o fluxo de CI/CD?**
+Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git: branch → commit → PR → merge), que é disciplina de versionamento, não integração/entrega contínua. Um CI/CD real (testes automatizados por PR, deploy automatizado de notebooks/Jobs, validação de schema antes de promover) depende de **Databricks Asset Bundles**, já registrado como evolução futura (seção 7) e não implementado por restrição de prazo — decisão consciente, não lacuna não percebida.
+
+## 9. Status atual e próximos passos
 
 **ADRs escritos:**
 - [ADR-01 — Ingestão independente via Volume UC (Landing)](adr/adr-01-ingestao-independente-landing.md)
 - [ADR-02 — Parametrização via Widgets e escrita idempotente na Landing Zone](adr/adr-02-widgets-idempotencia-landing.md)
+- [ADR-03 — Escrita idempotente na Bronze via MERGE e coluna de validação de integridade](adr/adr-03-merge-bronze-validacao-integridade.md)
 
 **Infraestrutura já criada:**
-- Repositório GitHub estruturado (`docs/adr`, `knime`, `databricks/{bronze,silver,gold,jobs,reconciliation,tests}`)
+- Repositório GitHub estruturado (`docs/adr`, `knime`, `databricks/{landing,bronze,silver,gold,jobs,reconciliation,tests}`)
 - Git folder conectando o Databricks ao repositório, fluxo branch → commit → PR → merge validado
 - Workflow KNIME completo e funcional (`knime/b3_pipeline_legado.knwf`)
 - Catalog `poc_b3_modernizacao` e os 4 schemas (`landing`, `bronze`, `silver`, `gold`), com tags e descrição
 - Volume `poc_b3_modernizacao.landing.raw`
+- Tabela `poc_b3_modernizacao.bronze.cotacoes`
 
 **Testes realizados:**
 - Conectividade do Databricks Free Edition com `brapi.dev` e GitHub (`databricks/tests/teste_b3.ipynb`) — ambos confirmados acessíveis.
 
+**Padrão de desenvolvimento adotado:** PySpark como linguagem primária em todos os notebooks — SQL evitado, usado apenas quando genuinamente inevitável (nenhum caso até o momento). Reforça o requisito de Databricks/Spark da vaga simulada como competência central, não apenas SQL.
+
 **Código já implementado:**
-- `databricks/bronze/01_ingestao_landing`: busca os 4 tickers na API, grava JSON bruto no Volume `landing.raw`, parametrizado via Widgets (ticker, data de referência, modo de execução), com célula de validação pós-gravação.
+- `databricks/landing/01_ingestao_landing`: busca os 4 tickers na API, grava JSON bruto no Volume `landing.raw`, parametrizado via Widgets (ticker, data de referência, modo de execução), com célula de validação pós-gravação.
+- `databricks/bronze/02_bronze`: lê todos os arquivos do Volume `landing.raw`, valida integridade (data da partição vs. data real do conteúdo), grava via MERGE idempotente na tabela `bronze.cotacoes`, com colunas de auditoria (`data_carga`, `arquivo_origem`, `data_valida`). Ver [ADR-03](adr/adr-03-merge-bronze-validacao-integridade.md).
 
 **Estado dos dados:**
 - CSVs do KNIME gerados e versionados por data (`knime/cotacoes_detalhado_AAAA-MM-DD.csv`, `knime/indice_proxy_AAAA-MM-DD.csv`), com histórico iniciado em 26/08/2026.
-- JSON bruto da ingestão Databricks gravado no Volume para 27/08/2026.
+- Tabela `bronze.cotacoes`: 8 registros — 4 de `data_referencia=2026-08-27` (`data_valida=True`) e 4 de `data_referencia=2026-08-26` (`data_valida=False`, arquivo de teste mantido para fins de auditoria, não representa cotação real de 26/08).
 
-**Próximo passo real:** criação da tabela Bronze, lendo o JSON do Volume `landing` (cópia fiel, sem tipagem, conforme princípio Medallion já documentado).
+**Próximo passo real:** camada Silver — tipagem dos campos numéricos, deduplicação, e definição de como tratar registros com `data_valida=False` (decisão a ser registrada em ADR próprio).
