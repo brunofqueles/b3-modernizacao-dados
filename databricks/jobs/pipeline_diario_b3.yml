@@ -1,0 +1,64 @@
+# Definicao do Job "pipeline_diario_b3"
+#
+# Este arquivo e uma exportacao (via "View as code" no Databricks Jobs UI)
+# da configuracao real do Job em producao, incluindo as 4 tasks (ingestao,
+# bronze, silver, gold), suas dependencias, agendamento (17:15, dias uteis,
+# America/Sao_Paulo) e notificacao de falha por e-mail.
+#
+# Proposito: versionamento e documentacao viva da orquestracao do pipeline,
+# servindo como primeiro passo em direcao a uma futura adocao de Databricks
+# Asset Bundles (IaC) — ver architecture.md, secao de Evolucao — onde este
+# mesmo formato YAML seria a fonte de verdade "deployada" via comando
+# (databricks bundle deploy), em vez de configurado manualmente pela interface.
+#
+# Este arquivo e uma copia de referencia: alteracoes feitas aqui NAO sao
+# aplicadas automaticamente ao Job real — a edicao continua sendo feita
+# pela interface do Databricks Jobs, e este arquivo deve ser reexportado
+# e commitado sempre que a configuracao do Job mudar.
+resources:
+  jobs:
+    pipeline_diario_b3:
+      name: pipeline_diario_b3
+      description: "Pipeline diario do projeto B3. Orquestra as 4 tasks do fluxo
+        completo: ingestao (Landing), Bronze, Silver, Gold. Agendado apos o
+        fechamento do pregao (17:15)."
+      schedule:
+        quartz_cron_expression: 0 15 17 ? * MON-FRI
+        timezone_id: America/Sao_Paulo
+        pause_status: UNPAUSED
+      tasks:
+        - task_key: ingestao_landing
+          notebook_task:
+            notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/landing/01_ingestao_landing
+            base_parameters:
+              modo_execucao: agendado
+            source: WORKSPACE
+          email_notifications:
+            on_failure:
+              - bruno.quelestech@outlook.com
+        - task_key: bronze
+          depends_on:
+            - task_key: ingestao_landing
+          notebook_task:
+            notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/bronze/02_bronze
+            source: WORKSPACE
+        - task_key: silver
+          depends_on:
+            - task_key: bronze
+          notebook_task:
+            notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/silver/03_silver
+            source: WORKSPACE
+        - task_key: gold
+          depends_on:
+            - task_key: silver
+          notebook_task:
+            notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/gold/04_gold
+            source: WORKSPACE
+      tags:
+        ambiente: poc
+        dominio: mercado-financeiro
+        projeto: b3-modernizacao-dados
+        tipo: pipeline-diario
+      queue:
+        enabled: true
+      performance_target: PERFORMANCE_OPTIMIZED

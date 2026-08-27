@@ -19,7 +19,8 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Tabela Bronze (`bronze.cotacoes`), com MERGE idempotente e coluna de validação de integridade
 - [x] Silver (tipagem, deduplicação, quarentena unificada)
 - [x] Gold (4 indicadores: retorno diário, índice-proxy, ranking de valorização, dispersão)
-- [ ] Orquestração via Databricks Workflows
+- [x] ADR-06: orquestração via Databricks Workflows e YAML como documentação leve de IaC
+- [x] Orquestração via Databricks Workflows (Job `pipeline_diario_b3`, agendado dias úteis às 17h15)
 - [ ] Reconciliação Gold vs. KNIME
 - [ ] Diagrama de arquitetura final
 - [ ] Lições aprendidas
@@ -89,7 +90,7 @@ b3-modernizacao-dados/
 
 - O índice calculado é um **proxy simplificado**, não a metodologia oficial de um índice real da B3.
 - Databricks Free Edition: compute serverless apenas, sem SLA, uso não comercial, outbound restrito a domínios confiáveis (testado e confirmado compatível com `brapi.dev` e GitHub).
-- Comparação histórica (reconciliação) limitada a 3 dias de pregão (qui/sex/seg), com execução padronizada após o fechamento (~17h) para evitar divergência de preço intraday entre KNIME e Databricks.
+- Comparação histórica (reconciliação) limitada a 3 dias de pregão (qui/sex/seg), com execução padronizada após o fechamento (**17h15**) para evitar divergência de preço intraday entre KNIME e Databricks.
 
 ## Possíveis evoluções futuras
 
