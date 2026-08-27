@@ -12,11 +12,13 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] ADR-01: decisão de ingestão independente via Volume UC
 - [x] ADR-02: parametrização via Widgets e escrita idempotente na Landing Zone
 - [x] ADR-03: escrita idempotente na Bronze via MERGE e coluna de validação de integridade
+- [x] ADR-04: quarentena unificada, deduplicação e schema explícito na Silver
+- [x] ADR-05: indicadores da camada Gold e geração exclusivamente automatizada
 - [x] Catalog `poc_b3_modernizacao` e schemas por camada (landing, bronze, silver, gold), com tags e descrição
 - [x] Volume UC (`landing.raw`) + notebook de ingestão parametrizado (`01_ingestao_landing`)
 - [x] Tabela Bronze (`bronze.cotacoes`), com MERGE idempotente e coluna de validação de integridade
-- [ ] Silver (tipagem, deduplicação, regra de qualidade)
-- [ ] Gold (cálculo do índice-proxy em PySpark/SQL)
+- [x] Silver (tipagem, deduplicação, quarentena unificada)
+- [x] Gold (4 indicadores: retorno diário, índice-proxy, ranking de valorização, dispersão)
 - [ ] Orquestração via Databricks Workflows
 - [ ] Reconciliação Gold vs. KNIME
 - [ ] Diagrama de arquitetura final

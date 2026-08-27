@@ -51,8 +51,8 @@ Todos os catalog/schemas têm descrição registrada no momento da criação (n�
 |---|---|---|
 | **Landing (Volume UC)** | Cópia bruta e imutável da resposta da API `brapi.dev`, com metadados de ingestão. Ver [ADR-01](adr/adr-01-ingestao-independente-landing.md) e [ADR-02](adr/adr-02-widgets-idempotencia-landing.md). | ✅ Implementado (`databricks/bronze/01_ingestao_landing`) |
 | **Bronze** | Tabelas Delta, cópia fiel da fonte, imutável. | 🔧 Próximo passo |
-| **Silver** | Tipagem, deduplicação, pelo menos 1 regra de qualidade com tabela de quarentena (ex.: preço nulo/negativo desviado, sem quebrar o pipeline). | Pendente |
-| **Gold** | Cálculo do índice-proxy em PySpark/SQL, orquestrado como Job no Databricks Workflows. | Pendente |
+| **Silver** | Tipagem, deduplicação, pelo menos 1 regra de qualidade com tabela de quarentena (ex.: preço nulo/negativo desviado, sem quebrar o pipeline). | ✅ Implementado (`databricks/silver/03_silver`) — quarentena unificada, ver [ADR-04](adr/adr-04-quarentena-dedup-schema-silver.md) |
+| **Gold** | Cálculo do índice-proxy em PySpark/SQL, orquestrado como Job no Databricks Workflows. | ✅ Cálculo implementado (`databricks/gold/04_gold`) — 4 indicadores, ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md). Orquestração via Job ainda pendente. |
 | **Reconciliação** | Notebook comparando Gold (Databricks) com a saída do KNIME — contagem de linhas e valor do índice, por data (27/08, 28/08, 31/08). | Pendente |
 
 ## 4. Componentes e justificativa
@@ -66,6 +66,7 @@ Todos os catalog/schemas têm descrição registrada no momento da criação (n�
 | **Widgets (`dbutils.widgets`) no notebook de ingestão** | Parametrização de ticker, data de referência e modo de execução — permite reprocessamento pontual e isolamento de um único papel sem editar código. Ver [ADR-02](adr/adr-02-widgets-idempotencia-landing.md). |
 | **Databricks Workflows para orquestração** | Nativo, sem custo extra, disponível na Free Edition — orquestra Bronze → Silver → Gold como Job. |
 | **Databricks Git folders** | Conecta o workspace diretamente ao repositório GitHub, permitindo commits via branch + PR direto da interface do Databricks. |
+| **Geração da Gold exclusivamente via código** | Nenhum valor é editado manualmente em tabela Gold — implementa a primeira metade do modelo de governança pretendido (a segunda metade, RBAC por papel, permanece pendente). Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md). |
 
 ## 5. Limitações conhecidas da Free Edition e como o desenho já as absorve
 
@@ -101,7 +102,7 @@ Itens abaixo são **roadmap reconhecido**, não decisões já tomadas — não i
 Registradas aqui deliberadamente, mesmo as que ainda não têm resposta plena pelo pipeline — mostrar honestamente o que está e o que não está coberto é parte da maturidade que o projeto pretende demonstrar.
 
 **Quais ações mais se valorizaram?**
-Ainda não respondível de forma confiável pelo Databricks — depende da camada Gold (comparação de `preco_atual` vs. `fechamento_anterior` por ticker), que ainda não existe. Informalmente calculável hoje a partir do CSV do KNIME (`retorno_diario`), mas isso não é o pipeline respondendo, é leitura manual de arquivo.
+✅ Respondível pelo pipeline desde a conclusão da Gold: `gold.indicadores_diarios`, coluna `ranking_valorizacao`, ordenada por `retorno_diario_pct`. Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md).
 
 **Quando podemos encerrar o fluxo do KNIME?**
 Já respondível conceitualmente: o KNIME existe exclusivamente para sustentar a reconciliação (prova de que a lógica de negócio foi preservada na migração). Pode ser formalmente encerrado após a conclusão e validação da janela de reconciliação de 3 dias (27/08, 28/08, 31/08) — a partir daí, não tem mais função no projeto.
@@ -115,6 +116,8 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - [ADR-01 — Ingestão independente via Volume UC (Landing)](adr/adr-01-ingestao-independente-landing.md)
 - [ADR-02 — Parametrização via Widgets e escrita idempotente na Landing Zone](adr/adr-02-widgets-idempotencia-landing.md)
 - [ADR-03 — Escrita idempotente na Bronze via MERGE e coluna de validação de integridade](adr/adr-03-merge-bronze-validacao-integridade.md)
+- [ADR-04 — Quarentena unificada, deduplicação e schema explícito na Silver](adr/adr-04-quarentena-dedup-schema-silver.md)
+- [ADR-05 — Indicadores da camada Gold e geração exclusivamente automatizada](adr/adr-05-indicadores-gold-automatizada.md)
 
 **Infraestrutura já criada:**
 - Repositório GitHub estruturado (`docs/adr`, `knime`, `databricks/{landing,bronze,silver,gold,jobs,reconciliation,tests}`)
@@ -122,19 +125,24 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - Workflow KNIME completo e funcional (`knime/b3_pipeline_legado.knwf`)
 - Catalog `poc_b3_modernizacao` e os 4 schemas (`landing`, `bronze`, `silver`, `gold`), com tags e descrição
 - Volume `poc_b3_modernizacao.landing.raw`
-- Tabela `poc_b3_modernizacao.bronze.cotacoes`
+- Tabelas: `bronze.cotacoes`, `silver.cotacoes`, `silver.cotacoes_quarentena`, `gold.indicadores_diarios`, `gold.indice_proxy`
 
 **Testes realizados:**
 - Conectividade do Databricks Free Edition com `brapi.dev` e GitHub (`databricks/tests/teste_b3.ipynb`) — ambos confirmados acessíveis.
 
-**Padrão de desenvolvimento adotado:** PySpark como linguagem primária em todos os notebooks — SQL evitado, usado apenas quando genuinamente inevitável (nenhum caso até o momento). Reforça o requisito de Databricks/Spark da vaga simulada como competência central, não apenas SQL.
+**Padrão de desenvolvimento adotado:** PySpark como linguagem primária em todos os notebooks — SQL evitado, usado apenas quando genuinamente inevitável (nenhum caso até o momento).
+
+**Dívida técnica reconhecida:** função `merge_ou_cria` (lógica de MERGE idempotente) duplicada manualmente em 3 notebooks (`03_silver`, `04_gold`, e implicitamente repetida em conceito na Bronze) — Databricks não compartilha funções entre notebooks sem um passo explícito de importação (`%run` ou módulo Python). Candidata a extração futura para um utilitário compartilhado, quando o número de notebooks reaproveitando a mesma lógica justificar o investimento.
 
 **Código já implementado:**
 - `databricks/landing/01_ingestao_landing`: busca os 4 tickers na API, grava JSON bruto no Volume `landing.raw`, parametrizado via Widgets (ticker, data de referência, modo de execução), com célula de validação pós-gravação.
 - `databricks/bronze/02_bronze`: lê todos os arquivos do Volume `landing.raw`, valida integridade (data da partição vs. data real do conteúdo), grava via MERGE idempotente na tabela `bronze.cotacoes`, com colunas de auditoria (`data_carga`, `arquivo_origem`, `data_valida`). Ver [ADR-03](adr/adr-03-merge-bronze-validacao-integridade.md).
+- `databricks/silver/03_silver`: tipa (`date`, `timestamp`, `double`), deduplica (mantém registro mais recente por `data_carga`), separa registros problemáticos em quarentena unificada, com schema final explícito. Ver [ADR-04](adr/adr-04-quarentena-dedup-schema-silver.md).
+- `databricks/gold/04_gold`: calcula 4 indicadores (retorno diário, índice-proxy, ranking de valorização, dispersão), gerados exclusivamente via código, sem edição manual. Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md).
 
 **Estado dos dados:**
 - CSVs do KNIME gerados e versionados por data (`knime/cotacoes_detalhado_AAAA-MM-DD.csv`, `knime/indice_proxy_AAAA-MM-DD.csv`), com histórico iniciado em 26/08/2026.
-- Tabela `bronze.cotacoes`: 8 registros — 4 de `data_referencia=2026-08-27` (`data_valida=True`) e 4 de `data_referencia=2026-08-26` (`data_valida=False`, arquivo de teste mantido para fins de auditoria, não representa cotação real de 26/08).
+- Pipeline Databricks completo para 27/08/2026: 4 registros válidos em cada camada (Bronze → Silver → Gold), 4 registros em quarentena (rastreáveis, não descartados).
+- Índice-proxy de 27/08: `0.01%` (dispersão: `0.02%`). Ranking do dia: VALE3 (1º, +0,04%), demais papéis sem variação registrada no momento da execução.
 
-**Próximo passo real:** camada Silver — tipagem dos campos numéricos, deduplicação, e definição de como tratar registros com `data_valida=False` (decisão a ser registrada em ADR próprio).
+**Próximo passo real:** orquestração via Databricks Workflows (Job agendado, encadeando Landing → Bronze → Silver → Gold sem intervenção manual) e, em seguida, o notebook de reconciliação (Gold vs. KNIME).
