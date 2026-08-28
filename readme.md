@@ -4,7 +4,7 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 
 ## Status do projeto
 
-🚧 Em construção — última atualização: 27/08/2026
+🚧 Em construção — última atualização: 28/08/2026
 
 - [x] Repositório estruturado, com Git folders conectando o Databricks ao GitHub
 - [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy
@@ -14,14 +14,16 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] ADR-03: escrita idempotente na Bronze via MERGE e coluna de validação de integridade
 - [x] ADR-04: quarentena unificada, deduplicação e schema explícito na Silver
 - [x] ADR-05: indicadores da camada Gold e geração exclusivamente automatizada
-- [x] Catalog `poc_b3_modernizacao` e schemas por camada (landing, bronze, silver, gold), com tags e descrição
+- [x] Catalog `poc_b3_modernizacao` e schemas por camada (landing, bronze, silver, gold, reconciliation), com tags e descrição
 - [x] Volume UC (`landing.raw`) + notebook de ingestão parametrizado (`01_ingestao_landing`)
 - [x] Tabela Bronze (`bronze.cotacoes`), com MERGE idempotente e coluna de validação de integridade
 - [x] Silver (tipagem, deduplicação, quarentena unificada)
 - [x] Gold (4 indicadores: retorno diário, índice-proxy, ranking de valorização, dispersão)
 - [x] ADR-06: orquestração via Databricks Workflows e YAML como documentação leve de IaC
 - [x] Orquestração via Databricks Workflows (Job `pipeline_diario_b3`, agendado dias úteis às 17h15)
-- [ ] Reconciliação Gold vs. KNIME
+- [x] ADR-07: reconciliação Gold vs. KNIME (formato, tolerância, execução manual)
+- [x] Reconciliação Gold vs. KNIME (27/08: divergência com causa raiz documentada — defasagem de horário, não falha de migração)
+- [ ] Execuções de 28/08 e 31/08 (completar janela de reconciliação)
 - [ ] Diagrama de arquitetura final
 - [ ] Lições aprendidas
 

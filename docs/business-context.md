@@ -16,11 +16,16 @@ Este projeto simula esse cenário de ponta a ponta, com escopo reduzido para cab
 
 ## 2. Por que o índice-proxy, e o que ele representa
 
-O projeto calcula um **índice-proxy**: a média simples do retorno diário de 4 papéis (PETR4, VALE3, MGLU3, ITUB4). Isso não é a metodologia oficial de nenhum índice real da B3 (como o Ibovespa, que usa critérios de liquidez, free float e peso de capitalização) — é uma simplificação deliberada, documentada com essa ressalva desde o início ([ADR-01](adr/adr-01-ingestao-independente-landing.md), `architecture.md`).
+O projeto calcula um **índice-proxy** e três indicadores complementares, todos derivados dos mesmos 4 papéis (PETR4, VALE3, MGLU3, ITUB4), gerados de forma automatizada na camada Gold. O índice-proxy em si não é a metodologia oficial de nenhum índice real da B3 (como o Ibovespa, que usa critérios de liquidez, free float e peso de capitalização) — é uma simplificação deliberada, documentada com essa ressalva desde o início ([ADR-01](adr/adr-01-ingestao-independente-landing.md), `architecture.md`).
 
-**Como interpretar os números:**
-- **Retorno diário** de um papel: `(preço atual - fechamento anterior) / fechamento anterior`. Um valor de `0.0065`, por exemplo, significa que o papel valorizou 0,65% no dia.
+**Os 4 indicadores calculados, e como interpretar cada um:**
+
+- **Retorno diário por ticker**: `(preço atual - fechamento anterior) / fechamento anterior`, expresso em percentual. Um valor de `0,65%`, por exemplo, significa que o papel valorizou 0,65% no dia.
 - **Índice-proxy**: a média simples dos 4 retornos diários. Representa, de forma simplificada, "como esses 4 papéis se comportaram, em média, no dia" — não uma medida de mercado amplo.
+- **Ranking de valorização**: ordena os 4 papéis do maior para o menor retorno do dia, respondendo diretamente "quais ações mais se valorizaram?".
+- **Dispersão do dia**: o desvio padrão dos 4 retornos diários. Um valor baixo indica que os papéis se moveram de forma parecida entre si naquele dia; um valor alto indica que alguns subiram e outros caíram, ou que a intensidade do movimento variou bastante entre eles.
+
+**Indicador pendente, documentado deliberadamente:** variação acumulada do índice entre dias consecutivos (ex.: "como o índice evoluiu de 27/08 para 28/08"). Ainda não implementado porque depende de pelo menos 2 dias de dados válidos — assim que a janela de reconciliação (27/08, 28/08, 31/08) avançar, esse é o próximo indicador natural a ser adicionado. Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md).
 
 A escolha por proxy simplificado (em vez de tentar replicar a metodologia oficial de um índice real) foi consciente: dentro do prazo do projeto, não havia uma fonte gratuita confirmada para a carteira teórica oficial de um índice real, e apresentar um proxy como se fosse metodologia oficial seria uma imprecisão grave numa conversa técnica sobre mercado de capitais.
 
