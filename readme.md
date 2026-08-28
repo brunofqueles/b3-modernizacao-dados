@@ -25,8 +25,11 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Reconciliação Gold vs. KNIME (27/08: divergência com causa raiz documentada — defasagem de horário, não falha de migração)
 - [x] ADR-08: observabilidade via log de execução e módulo utilitário compartilhado
 - [x] Observabilidade (tabela `observability.pipeline_runs`) e eliminação da duplicação de código (`merge_ou_cria`)
-- [ ] 5º indicador (variação acumulada entre dias)
-- [ ] Execução de 31/08 (completar janela de reconciliação)
+- [x] ADR-09: índice acumulado (5º indicador, base 100, capitalização composta)
+- [x] ADR-10: reconciliação automatizada D-1, tratamento explícito de erro
+- [x] 5º indicador (`gold.indice_acumulado`)
+- [x] Reconciliação automatizada (5ª Task no Job, detecção de D-1, sem intervenção manual)
+- [ ] Execução de 31/08 (completar janela de reconciliação, agora via Job automático)
 - [ ] Diagrama de arquitetura final
 - [ ] Lições aprendidas
 

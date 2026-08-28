@@ -1,9 +1,14 @@
 # Definicao do Job "pipeline_diario_b3"
 #
 # Este arquivo e uma exportacao (via "View as code" no Databricks Jobs UI)
-# da configuracao real do Job em producao, incluindo as 4 tasks (ingestao,
-# bronze, silver, gold), suas dependencias, agendamento (17:15, dias uteis,
-# America/Sao_Paulo) e notificacao de falha por e-mail.
+# da configuracao real do Job em producao, incluindo as 5 tasks (ingestao,
+# bronze, silver, gold, reconciliacao), suas dependencias, agendamento (17:15,
+# dias uteis, America/Sao_Paulo) e notificacao de falha por e-mail.
+#
+# A task "reconciliacao" compara Gold vs. KNIME automaticamente para o dia
+# anterior (D-1), detectado dinamicamente a partir da ultima data disponivel
+# na gold.indice_proxy — nao depende de calendario fixo, adaptando-se
+# automaticamente a fins de semana e feriados sem dado. Ver ADR-09.
 #
 # Proposito: versionamento e documentacao viva da orquestracao do pipeline,
 # servindo como primeiro passo em direcao a uma futura adocao de Databricks
@@ -15,6 +20,7 @@
 # aplicadas automaticamente ao Job real — a edicao continua sendo feita
 # pela interface do Databricks Jobs, e este arquivo deve ser reexportado
 # e commitado sempre que a configuracao do Job mudar.
+
 resources:
   jobs:
     pipeline_diario_b3:
@@ -53,6 +59,12 @@ resources:
             - task_key: silver
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/gold/04_gold
+            source: WORKSPACE
+        - task_key: reconciliacao
+          depends_on:
+            - task_key: gold
+          notebook_task:
+            notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/reconciliation/05_reconciliacao
             source: WORKSPACE
       tags:
         ambiente: poc
