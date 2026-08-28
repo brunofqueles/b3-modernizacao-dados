@@ -23,7 +23,10 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Orquestração via Databricks Workflows (Job `pipeline_diario_b3`, agendado dias úteis às 17h15)
 - [x] ADR-07: reconciliação Gold vs. KNIME (formato, tolerância, execução manual)
 - [x] Reconciliação Gold vs. KNIME (27/08: divergência com causa raiz documentada — defasagem de horário, não falha de migração)
-- [ ] Execuções de 28/08 e 31/08 (completar janela de reconciliação)
+- [x] ADR-08: observabilidade via log de execução e módulo utilitário compartilhado
+- [x] Observabilidade (tabela `observability.pipeline_runs`) e eliminação da duplicação de código (`merge_ou_cria`)
+- [ ] 5º indicador (variação acumulada entre dias)
+- [ ] Execução de 31/08 (completar janela de reconciliação)
 - [ ] Diagrama de arquitetura final
 - [ ] Lições aprendidas
 

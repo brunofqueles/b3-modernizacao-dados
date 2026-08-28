@@ -43,6 +43,7 @@ Catalog único `poc_b3_modernizacao`, schema por camada, criados em 27/08/2026:
 | `poc_b3_modernizacao.silver` | Tabelas Delta tipadas, deduplicadas, com regra de qualidade e quarentena | `camada=silver` (+ tags comuns acima) |
 | `poc_b3_modernizacao.gold` | Tabelas Delta com o índice-proxy, gerada de forma automatizada via Job | `camada=gold` (+ tags comuns acima) |
 | `poc_b3_modernizacao.reconciliation` | Resultado da comparação entre Gold e KNIME, por data — nível agregado e detalhado | `camada=reconciliation` (+ tags comuns acima) |
+| `poc_b3_modernizacao.observability` | Log de execução dos notebooks do pipeline — responde se quebrou, quando e por quê | `camada=observability` (+ tags comuns acima) |
 
 Todos os catalog/schemas têm descrição registrada no momento da criação. A partir do schema `reconciliation`, a criação passou a ser feita via código (`databricks/setup/00_setup_catalog`), não mais manualmente pela interface — ver [ADR-07](adr/adr-07-reconciliacao-formato-tolerancia-manual.md).
 
@@ -70,6 +71,7 @@ Todos os catalog/schemas têm descrição registrada no momento da criação. A 
 | **Geração da Gold exclusivamente via código** | Nenhum valor é editado manualmente em tabela Gold — implementa a primeira metade do modelo de governança pretendido (a segunda metade, RBAC por papel, permanece pendente). Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md). |
 | **Databricks Workflows (Job `pipeline_diario_b3`)** | Orquestra as 4 Tasks em cadeia (Landing → Bronze → Silver → Gold), agendado para dias úteis às 17h15, com notificação de falha por e-mail. Completa a automação real do pipeline, sem intervenção manual. Ver [ADR-06](adr/adr-06-orquestracao-workflows-yaml.md). |
 | **YAML do Job exportado como documentação** | Aproxima o projeto de IaC sem o custo completo de Databricks Asset Bundles — cópia de referência versionada, não fonte de verdade deployada. Ver [ADR-06](adr/adr-06-orquestracao-workflows-yaml.md). |
+| **Notebook utilitário compartilhado (`%run`)** | Centraliza `merge_ou_cria` e `registrar_execucao`, eliminando duplicação de código entre 4 notebooks e viabilizando a observabilidade de forma consistente. Ver [ADR-08](adr/adr-08-observabilidade-modulo-compartilhado.md). |
 
 ## 5. Limitações conhecidas da Free Edition e como o desenho já as absorve
 
@@ -95,7 +97,7 @@ Itens abaixo são **roadmap reconhecido**, não decisões já tomadas — não i
 
 - **Databricks Asset Bundles (IaC)**: padrão mais robusto para deploy/CI-CD entre ambientes.
 - **Agente de automação de commit/PR** via API REST do GitHub — mecânica já validada em projeto anterior (branch → commit → PR automáticos, merge sempre manual). Candidato a extra, condicionado a sobra de tempo.
-- **Observabilidade do pipeline**: hoje o pipeline não registra suas próprias execuções — uma falha ou uma sobrescrita indevida (ver riscos, seção 6) não deixa rastro. Evolução: tabela de log de execução (`pipeline_runs` ou similar) respondendo a três perguntas — o pipeline quebrou? quando? por quê? — usando o campo `modo_execucao` já presente no notebook de ingestão como um dos insumos.
+- **Observabilidade — refinamentos além do já implementado**: a tabela de log de execução (`observability.pipeline_runs`) já está implementada e validada (ver [ADR-08](adr/adr-08-observabilidade-modulo-compartilhado.md)), respondendo "quebrou? quando?" de forma automatizada. Evoluções ainda pendentes: (1) registro explícito de falha com `try/except` em cada notebook — hoje a falha é detectada apenas pela ausência de um registro de sucesso, não por um evento de falha com `mensagem_erro` detalhado; (2) propagação consistente de `modo_execucao` via Widget em todos os notebooks (hoje só `01` e `02` têm esse Widget); (3) AI/BI Dashboard visualizando os dados, hoje consultados apenas via `display()` simples.
 - **Reconciliação automatizada com defasagem D-1**: a reconciliação hoje é executada manualmente (ver [ADR-07](adr/adr-07-reconciliacao-formato-tolerancia-manual.md)), pois depende do CSV do KNIME já estar commitado e sincronizado — dependência externa ao Job agendado. Evolução: incorporar como Task automática comparando sempre o dia anterior (D-1), quando o dado já está garantidamente disponível, incluindo alerta automático de divergência (não apenas registro passivo do resultado).
 - **Governança de acesso (RBAC)**: modelo pretendido — arquitetos com acesso completo a todas as camadas; engenharia limitada a Bronze e Silver; negócio limitado a Silver. A camada Gold seria gerada exclusivamente de forma automatizada via Job (nunca editada manualmente), especificamente para eliminar divergência de números entre diferentes consumidores do dado. Documentado aqui como modelo pretendido — não implementado com RBAC real no Unity Catalog dentro do prazo do projeto.
 - **Escalabilidade**: caminho de 4 tickers para uma lista maior (ex.: 500 papéis, ou o pregão completo). Pontos que precisariam de revisão: paginação/rate limit da API `brapi.dev` em volume maior; o dropdown fixo de tickers no Widget (ver [ADR-02](adr/adr-02-widgets-idempotencia-landing.md)) precisaria virar uma fonte dinâmica (tabela de referência) em vez de lista codificada; volume de dados por camada e se a arquitetura atual aguenta o salto sem redesenho de particionamento. Nesse cenário de múltiplas fontes/sistemas, também passaria a fazer sentido avaliar **Programação Orientada a Objetos** (classe base de ingestão com subclasses por fonte) — decisão deliberadamente não adotada nesta fase, por não haver ainda repetição de estrutura real que justifique a abstração (projeto tem uma única fonte, uma única forma de ingestão).
@@ -124,35 +126,39 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - [ADR-05 — Indicadores da camada Gold e geração exclusivamente automatizada](adr/adr-05-indicadores-gold-automatizada.md)
 - [ADR-06 — Orquestração via Databricks Workflows e YAML como documentação leve de IaC](adr/adr-06-orquestracao-workflows-yaml.md)
 - [ADR-07 — Reconciliação Gold vs. KNIME: formato, tolerância e execução manual](adr/adr-07-reconciliacao-formato-tolerancia-manual.md)
+- [ADR-08 — Observabilidade via log de execução e módulo utilitário compartilhado](adr/adr-08-observabilidade-modulo-compartilhado.md)
 
 **Infraestrutura já criada:**
 - Repositório GitHub estruturado (`docs/adr`, `knime`, `databricks/{setup,landing,bronze,silver,gold,jobs,reconciliation,tests}`)
 - Git folder conectando o Databricks ao repositório, fluxo branch → commit → PR → merge validado (via Databricks e via terminal local)
-- Workflow KNIME completo e funcional (`knime/b3_pipeline_legado.knwf`), 2 execuções reais (26/08, 27/08)
-- Catalog `poc_b3_modernizacao` e os 5 schemas (`landing`, `bronze`, `silver`, `gold`, `reconciliation`), com tags e descrição — a partir de `reconciliation`, criado via código
+- Workflow KNIME completo e funcional, 3 execuções reais (26/08, 27/08, 28/08)
+- Catalog `poc_b3_modernizacao` e os 6 schemas (`landing`, `bronze`, `silver`, `gold`, `reconciliation`, `observability`), com tags e descrição — criados via código a partir de `reconciliation`
 - Volume `poc_b3_modernizacao.landing.raw`
-- Tabelas: `bronze.cotacoes`, `silver.cotacoes`, `silver.cotacoes_quarentena`, `gold.indicadores_diarios`, `gold.indice_proxy`, `reconciliation.resultado_indice`, `reconciliation.resultado_detalhado`
-- Job `pipeline_diario_b3`: 4 Tasks em cadeia, agendado dias úteis às 17h15, notificação de falha por e-mail, tags aplicadas. YAML exportado em `databricks/jobs/pipeline_diario_b3.yml`. **Validado em execução agendada real (27/08), sem intervenção manual.**
+- Tabelas: `bronze.cotacoes`, `silver.cotacoes`, `silver.cotacoes_quarentena`, `gold.indicadores_diarios`, `gold.indice_proxy`, `reconciliation.resultado_indice`, `reconciliation.resultado_detalhado`, `observability.pipeline_runs`
+- Job `pipeline_diario_b3`: 4 Tasks em cadeia, agendado dias úteis às 17h15, notificação de falha por e-mail. Validado em execução agendada real (27/08), sem intervenção manual.
 
 **Testes realizados:**
-- Conectividade do Databricks Free Edition com `brapi.dev` e GitHub (`databricks/tests/teste_b3.ipynb`) — ambos confirmados acessíveis.
-- Execução real do Job agendado (27/08, 17h15): 4 Tasks concluídas com sucesso, ~2 minutos de duração total, sem intervenção manual.
+- Conectividade do Databricks Free Edition com `brapi.dev` e GitHub — confirmados acessíveis.
+- Execução real do Job agendado (27/08, 17h15): 4 Tasks concluídas com sucesso, ~2 minutos, sem intervenção manual.
+- Execução completa instrumentada (28/08): 5 notebooks, 5 registros de observabilidade, todos `status = sucesso`.
 
-**Padrão de desenvolvimento adotado:** PySpark como linguagem primária em todos os notebooks — SQL evitado, usado apenas quando genuinamente inevitável (nenhum caso até o momento).
+**Padrão de desenvolvimento adotado:** PySpark como linguagem primária — SQL evitado, usado apenas quando genuinamente inevitável. Funções compartilhadas via `%run` a partir de `databricks/setup/01_utilitarios_pipeline`.
 
-**Dívida técnica reconhecida:** função `merge_ou_cria` duplicada manualmente em 4 notebooks (`03_silver`, `04_gold`, `05_reconciliacao`, e implicitamente repetida em conceito na Bronze) — candidata a extração futura para um utilitário compartilhado.
+**Dívida técnica:** ~~função `merge_ou_cria` duplicada em 4 notebooks~~ — **resolvida** (ver [ADR-08](adr/adr-08-observabilidade-modulo-compartilhado.md)). Pendente: `modo_execucao` inconsistente entre notebooks (só `01` e `02` têm Widget); detecção de falha apenas por ausência de registro, não por evento explícito.
 
 **Código já implementado:**
-- `databricks/setup/00_setup_catalog`: cria catalog e os 5 schemas de forma idempotente e via código — infraestrutura como código no sentido restrito (não Databricks Asset Bundles). Ver [ADR-07](adr/adr-07-reconciliacao-formato-tolerancia-manual.md).
-- `databricks/landing/01_ingestao_landing`: busca os 4 tickers na API, grava JSON bruto no Volume `landing.raw`, parametrizado via Widgets.
-- `databricks/bronze/02_bronze`: lê o Volume, valida integridade, grava via MERGE na Bronze. Ver [ADR-03](adr/adr-03-merge-bronze-validacao-integridade.md).
-- `databricks/silver/03_silver`: tipa, deduplica, separa em quarentena unificada. Ver [ADR-04](adr/adr-04-quarentena-dedup-schema-silver.md).
-- `databricks/gold/04_gold`: calcula 4 indicadores, gerados exclusivamente via código. Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md).
-- `databricks/jobs/pipeline_diario_b3.yml`: exportação de referência do Job de orquestração. Ver [ADR-06](adr/adr-06-orquestracao-workflows-yaml.md).
-- `databricks/reconciliation/05_reconciliacao`: compara Gold vs. KNIME (índice agregado e detalhado por ticker), com tolerância e causa raiz documentada, execução manual. Ver [ADR-07](adr/adr-07-reconciliacao-formato-tolerancia-manual.md).
+- `databricks/setup/00_setup_catalog`: cria catalog e os 6 schemas de forma idempotente e via código.
+- `databricks/setup/01_utilitarios_pipeline`: funções compartilhadas `merge_ou_cria` e `registrar_execucao`. Ver [ADR-08](adr/adr-08-observabilidade-modulo-compartilhado.md).
+- `databricks/landing/01_ingestao_landing`: busca os 4 tickers na API, grava JSON bruto no Volume, parametrizado via Widgets, instrumentado com observabilidade.
+- `databricks/bronze/02_bronze`: lê o Volume, valida integridade, grava via MERGE (agora via função compartilhada), instrumentado.
+- `databricks/silver/03_silver`: tipa, deduplica, quarentena unificada, instrumentado.
+- `databricks/gold/04_gold`: calcula 4 indicadores, instrumentado.
+- `databricks/jobs/pipeline_diario_b3.yml`: exportação de referência do Job.
+- `databricks/reconciliation/05_reconciliacao`: compara Gold vs. KNIME, instrumentado.
 
 **Estado dos dados:**
-- CSVs do KNIME: histórico em 26/08 (fora da janela de reconciliação) e 27/08 (válido).
-- Reconciliação de 27/08: `status = diverge` em todos os níveis, causa raiz documentada (defasagem de ~7-9 minutos entre as execuções do KNIME e do Job Databricks, coincidindo com movimento real de mercado) — não indica falha de migração de lógica de negócio.
+- CSVs do KNIME: 26/08 (fora da janela), 27/08 e 28/08 (válidos).
+- Pipeline Databricks: dados de 26/08, 27/08 e 28/08 em todas as camadas.
+- Observabilidade: 5 registros de execução (28/08), todos `status = sucesso`.
 
-**Próximo passo real:** execuções de 28/08 (hoje) e 31/08 (segunda), completando a janela de reconciliação de 3 dias; em seguida, lições aprendidas.
+**Próximo passo real:** 5º indicador (variação acumulada entre dias — já viável com 28/08 disponível); execução de 31/08; lições aprendidas.
