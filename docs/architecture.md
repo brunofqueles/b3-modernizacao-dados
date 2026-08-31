@@ -72,6 +72,7 @@ Todos os catalog/schemas têm descrição registrada no momento da criação. A 
 | **Databricks Workflows (Job `pipeline_diario_b3`)** | Orquestra 5 Tasks em cadeia (Landing → Bronze → Silver → Gold → Reconciliação), agendado para dias úteis às 17h15, com notificação de falha por e-mail. Completa a automação real do pipeline, sem intervenção manual. Ver [ADR-06](adr/adr-06-orquestracao-workflows-yaml.md), [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md). |
 | **YAML do Job exportado como documentação** | Aproxima o projeto de IaC sem o custo completo de Databricks Asset Bundles — cópia de referência versionada, não fonte de verdade deployada. Ver [ADR-06](adr/adr-06-orquestracao-workflows-yaml.md). |
 | **Notebook utilitário compartilhado (`%run`)** | Centraliza `merge_ou_cria` e `registrar_execucao`, eliminando duplicação de código entre 4 notebooks e viabilizando a observabilidade de forma consistente. Ver [ADR-08](adr/adr-08-observabilidade-modulo-compartilhado.md). |
+| **AI/BI Dashboard + Genie Space** | Camada de consumo executivo: 4 painéis visuais (índice acumulado, ranking, reconciliação, observabilidade) e um agente de consulta em linguagem natural com acesso curado (só Gold e Reconciliação) e instruções embutindo as ressalvas de domínio do projeto. Ver [ADR-11](adr/adr-11-dashboard-genie-consumo-executivo.md). |
 
 ## 5. Limitações conhecidas da Free Edition e como o desenho já as absorve
 
@@ -97,8 +98,8 @@ Itens abaixo são **roadmap reconhecido**, não decisões já tomadas — não i
 
 - **Databricks Asset Bundles (IaC)**: padrão mais robusto para deploy/CI-CD entre ambientes.
 - **Agente de automação de commit/PR** via API REST do GitHub — mecânica já validada em projeto anterior (branch → commit → PR automáticos, merge sempre manual). Candidato a extra, condicionado a sobra de tempo.
-- **Observabilidade — refinamentos além do já implementado**: a tabela de log de execução (`observability.pipeline_runs`) já está implementada e validada (ver [ADR-08](adr/adr-08-observabilidade-modulo-compartilhado.md)), respondendo "quebrou? quando?" de forma automatizada. A reconciliação (`05_reconciliacao`) já implementa detecção explícita de falha via `try/except`-equivalente (`FileNotFoundError` quando o CSV do KNIME está ausente — ver [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md)); os demais 4 notebooks ainda dependem apenas da ausência de registro para inferir falha. Evoluções ainda pendentes: (1) estender o tratamento explícito de erro aos demais notebooks; (2) propagação consistente de `modo_execucao` via Widget em todos os notebooks; (3) AI/BI Dashboard visualizando os dados, hoje consultados apenas via `display()` simples.
-- **Reconciliação automatizada com defasagem D-1**: ✅ implementada — ver [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md). Evolução remanescente: alerta específico de divergência (hoje a notificação de falha do Job cobre apenas erros de execução, não o caso "rodou com sucesso, mas os valores divergem").
+- **Observabilidade — refinamentos além do já implementado**: a tabela de log de execução (`observability.pipeline_runs`) já está implementada e validada (ver [ADR-08](adr/adr-08-observabilidade-modulo-compartilhado.md)), respondendo "quebrou? quando?" de forma automatizada. A reconciliação (`05_reconciliacao`) já implementa detecção explícita de falha via `try/except`-equivalente (`FileNotFoundError` quando o CSV do KNIME está ausente — ver [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md)); os demais 4 notebooks ainda dependem apenas da ausência de registro para inferir falha. AI/BI Dashboard: ✅ implementado — ver [ADR-11](adr/adr-11-dashboard-genie-consumo-executivo.md). Evoluções ainda pendentes: (1) estender o tratamento explícito de erro aos demais notebooks; (2) propagação consistente de `modo_execucao` via Widget em todos os notebooks; (3) investigar a causa da execução dupla do Job observada em 28/08 (ver [ADR-11](adr/adr-11-dashboard-genie-consumo-executivo.md)).
+- **Reconciliação automatizada com defasagem D-1**: ✅ implementada — ver [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md). Evolução remanescente: alerta específico de divergência, implementado de forma aditiva (notebook/célula separada lendo `reconciliation.resultado_indice`, sem alterar os notebooks já validados) — planejado para a manhã de 31/08, condicionado a tempo disponível.
 - **Governança de acesso (RBAC)**: modelo pretendido — arquitetos com acesso completo a todas as camadas; engenharia limitada a Bronze e Silver; negócio limitado a Silver. A camada Gold seria gerada exclusivamente de forma automatizada via Job (nunca editada manualmente), especificamente para eliminar divergência de números entre diferentes consumidores do dado. Documentado aqui como modelo pretendido — não implementado com RBAC real no Unity Catalog dentro do prazo do projeto.
 - **Escalabilidade**: caminho de 4 tickers para uma lista maior (ex.: 500 papéis, ou o pregão completo). Pontos que precisariam de revisão: paginação/rate limit da API `brapi.dev` em volume maior; o dropdown fixo de tickers no Widget (ver [ADR-02](adr/adr-02-widgets-idempotencia-landing.md)) precisaria virar uma fonte dinâmica (tabela de referência) em vez de lista codificada; volume de dados por camada e se a arquitetura atual aguenta o salto sem redesenho de particionamento. Nesse cenário de múltiplas fontes/sistemas, também passaria a fazer sentido avaliar **Programação Orientada a Objetos** (classe base de ingestão com subclasses por fonte) — decisão deliberadamente não adotada nesta fase, por não haver ainda repetição de estrutura real que justifique a abstração (projeto tem uma única fonte, uma única forma de ingestão).
 - Ampliação do índice-proxy para mais tickers ou ponderação por `marketCap`, caso o projeto seja retomado após a entrega.
@@ -129,6 +130,7 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - [ADR-08 — Observabilidade via log de execução e módulo utilitário compartilhado](adr/adr-08-observabilidade-modulo-compartilhado.md)
 - [ADR-09 — Índice acumulado (base 100) via capitalização composta](adr/adr-09-indice-acumulado-capitalizacao-composta.md)
 - [ADR-10 — Reconciliação automatizada D-1, tratamento explícito de erro e correção de dado residual](adr/adr-10-reconciliacao-d1-automatizada.md)
+- [ADR-11 — Camada de consumo executivo: AI/BI Dashboard e Genie Space](adr/adr-11-dashboard-genie-consumo-executivo.md)
 
 **Infraestrutura já criada:**
 - Repositório GitHub estruturado (`docs/adr`, `knime`, `databricks/{setup,landing,bronze,silver,gold,jobs,reconciliation,tests}`)
@@ -138,17 +140,19 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - Volume `poc_b3_modernizacao.landing.raw`
 - Tabelas: `bronze.cotacoes`, `silver.cotacoes`, `silver.cotacoes_quarentena`, `gold.indicadores_diarios`, `gold.indice_proxy`, `gold.indice_acumulado`, `reconciliation.resultado_indice`, `reconciliation.resultado_detalhado`, `observability.pipeline_runs`
 - Job `pipeline_diario_b3`: **5 Tasks em cadeia** (Landing → Bronze → Silver → Gold → Reconciliação), agendado dias úteis às 17h15, notificação de falha por e-mail. YAML reexportado após a 5ª Task.
+- AI/BI Dashboard "B3 - Modernização de Dados" (publicado), 4 painéis: índice acumulado, ranking de valorização, reconciliação (com formatação condicional), observabilidade.
+- Genie Space "Genie B3 - Modernização de Dados", acesso curado (Gold + Reconciliação), instruções com ressalvas de domínio, 3 exemplos de pergunta+SQL.
 
 **Testes realizados:**
 - Conectividade do Databricks Free Edition com `brapi.dev` e GitHub — confirmados acessíveis.
 - Execução real do Job agendado (27/08, 17h15): 4 Tasks (versão anterior), sem intervenção manual.
 - Execução completa instrumentada (28/08): 5 notebooks, observabilidade registrando sucesso em todos.
 
-**Padrão de desenvolvimento adotado:** PySpark como linguagem primária. Funções compartilhadas via `%run`.
+**Padrão de desenvolvimento adotado:** PySpark como linguagem primária. Funções compartilhadas via `%run`. Exceção documentada: datasets do AI/BI Dashboard em SQL (única forma nativa nessa ferramenta) — ver [ADR-11](adr/adr-11-dashboard-genie-consumo-executivo.md).
 
-**Dívida técnica:** `modo_execucao` inconsistente entre notebooks; detecção de falha por ausência de registro (exceto na reconciliação, que já tem tratamento explícito — ver ADR-10).
+**Dívida técnica:** `modo_execucao` inconsistente entre notebooks; detecção de falha por ausência de registro (exceto na reconciliação, que já tem tratamento explícito — ver ADR-10); causa da execução dupla do Job em 28/08 não investigada (ver ADR-11).
 
-**Código já implementado (resumo):** `00_setup_catalog`, `01_utilitarios_pipeline` (funções compartilhadas), `01_ingestao_landing`, `02_bronze`, `03_silver`, `04_gold` (5 indicadores, incluindo índice acumulado — ver ADR-09), `05_reconciliacao` (D-1 automático, detecção explícita de erro — ver ADR-10), `pipeline_diario_b3.yml`.
+**Código já implementado (resumo):** `00_setup_catalog`, `01_utilitarios_pipeline` (funções compartilhadas), `01_ingestao_landing`, `02_bronze`, `03_silver`, `04_gold` (5 indicadores, incluindo índice acumulado — ver ADR-09), `05_reconciliacao` (D-1 automático, detecção explícita de erro — ver ADR-10), `pipeline_diario_b3.yml`, AI/BI Dashboard e Genie Space (ver ADR-11).
 
 **Incidente encontrado e corrigido:** durante a migração da reconciliação para filtro por dia exato, identificou-se uma linha residual incorreta em `reconciliation.resultado_indice`/`resultado_detalhado` (data 28/08, comparando dado real da Gold com ausência de dado do KNIME, rotulada incorretamente com causa raiz de "divergência de horário"). Corrigida por `DELETE` direcionado após confirmação; a causa (join tipo `outer` sobre dias sem correspondência real) foi eliminada estruturalmente pela mudança de desenho (filtro por dia exato + falha explícita quando o KNIME não existe). Ver [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md).
 
@@ -157,4 +161,4 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - Reconciliação: 27/08 processado (`diverge`, causa raiz documentada); 28/08 pendente de reconciliação (será D-1 automático a partir da execução de 31/08).
 - Índice acumulado: 27/08 = 100 (base), 28/08 = 99,99.
 
-**Próximo passo real:** execução de 31/08 (agora inteiramente automatizada via Job, incluindo reconciliação D-1); lições aprendidas; diagrama de arquitetura final.
+**Próximo passo real:** execução de 31/08 (agora inteiramente automatizada via Job, incluindo reconciliação D-1); teste do Genie com perguntas reais; alerta de divergência (aditivo); lições aprendidas; diagrama de arquitetura final.
