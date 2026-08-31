@@ -29,6 +29,10 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] ADR-10: reconciliação automatizada D-1, tratamento explícito de erro
 - [x] 5º indicador (`gold.indice_acumulado`)
 - [x] Reconciliação automatizada (5ª Task no Job, detecção de D-1, sem intervenção manual)
+- [x] ADR-11: camada de consumo executivo (AI/BI Dashboard + Genie Space)
+- [x] AI/BI Dashboard publicado (índice acumulado, ranking, reconciliação, observabilidade)
+- [x] Genie Space configurado (acesso curado, instruções de domínio, 3 exemplos)
+- [ ] Alerta de divergência (implementação aditiva)
 - [ ] Execução de 31/08 (completar janela de reconciliação, agora via Job automático)
 - [ ] Diagrama de arquitetura final
 - [ ] Lições aprendidas
