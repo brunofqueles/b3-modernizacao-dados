@@ -36,6 +36,12 @@
 
 **Embutir ressalvas de domínio na camada de consumo de IA evita erro na frente do público certo.** As instruções do Genie Space, escritas antes de qualquer pergunta real, garantiram respostas que já incluíam automaticamente as ressalvas corretas (proxy simplificado, causa raiz de divergência) sem precisar de correção humana durante os testes — prova de que o cuidado na configuração antecipa problemas que só apareceriam ao vivo.
 
+**Databricks não permite capturar exceção entre células — isso molda como o código precisa ser estruturado.** Ao implementar tratamento de erro explícito nos notebooks, ficou claro que um `try/except` só funciona se toda a lógica de risco estiver dentro da mesma célula do bloco `try`. Isso forçou consolidar células antes separadas (leitura, transformação, gravação, validação) num único bloco — uma restrição de plataforma que precisa ser conhecida antes de tentar aplicar um padrão de tratamento de erro "de livro-texto".
+
+**Um teste de falha só é confiável se o erro realmente for lançado.** O primeiro teste de falha na ingestão (URL inválida) não capturou nada — a API retornou HTTP 404 com um corpo JSON válido, e sem `response.raise_for_status()` explícito, o Python nunca via isso como exceção. Testar o caminho de erro de propósito revelou uma lacuna real que passaria despercebida em qualquer teste só do caminho de sucesso.
+
+**Gestão de credencial tem um caminho certo, e vale segui-lo mesmo sob pressão de tempo.** Configurar o Secret Scope exigiu descobrir que o Databricks CLI só estava disponível no Web Terminal (ambiente do próprio Databricks), não no terminal local — um obstáculo pequeno, mas que teria sido tentador contornar colando a senha direto no código "só para testar rápido". Resistir a esse atalho e seguir o processo correto (CLI, Secret Scope, teste de redação) é o tipo de disciplina que só aparece quando alguém decide que vale a pena, não quando é forçado.
+
 ## 4. Resultado
 
 O projeto foi apresentado com sucesso e avançou para a etapa final do processo seletivo — validação prática de que a combinação de honestidade técnica (documentar limitações e não apenas conquistas), profundidade de arquitetura (Medallion completo, reconciliação real, observabilidade) e cuidado na camada de consumo (Dashboard e Genie testados antes da apresentação, não na hora) formou um material técnico e narrativo coerente.
