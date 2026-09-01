@@ -1,14 +1,20 @@
 # Definicao do Job "pipeline_diario_b3"
 #
 # Este arquivo e uma exportacao (via "View as code" no Databricks Jobs UI)
-# da configuracao real do Job em producao, incluindo as 5 tasks (ingestao,
-# bronze, silver, gold, reconciliacao), suas dependencias, agendamento (17:15,
-# dias uteis, America/Sao_Paulo) e notificacao de falha por e-mail.
+# da configuracao real do Job em producao, incluindo as 6 tasks (ingestao,
+# bronze, silver, gold, reconciliacao, alerta_divergencia), suas dependencias,
+# agendamento (17:15, dias uteis, America/Sao_Paulo) e notificacao de falha
+# e duracao por e-mail (2 enderecos, com propositos distintos - ver ADR-12).
 #
 # A task "reconciliacao" compara Gold vs. KNIME automaticamente para o dia
 # anterior (D-1), detectado dinamicamente a partir da ultima data disponivel
 # na gold.indice_proxy — nao depende de calendario fixo, adaptando-se
-# automaticamente a fins de semana e feriados sem dado. Ver ADR-09.
+# automaticamente a fins de semana e feriados sem dado. Ver ADR-10.
+#
+# A task "alerta_divergencia" e aditiva: le o resultado ja gravado pela task
+# "reconciliacao" e dispara um e-mail apenas quando a divergencia entre KNIME
+# e Databricks ultrapassa um limiar de anormalidade (1%, calibrado pelo maior
+# valor ja observado no projeto) - nao altera a logica de reconciliacao.
 #
 # Proposito: versionamento e documentacao viva da orquestracao do pipeline,
 # servindo como primeiro passo em direcao a uma futura adocao de Databricks
@@ -28,6 +34,17 @@ resources:
       description: "Pipeline diario do projeto B3. Orquestra as 4 tasks do fluxo
         completo: ingestao (Landing), Bronze, Silver, Gold. Agendado apos o
         fechamento do pregao (17:15)."
+      email_notifications:
+        on_failure:
+          - bruno.queles.dataeng@gmail.com
+          - bruno.quelestech@outlook.com
+        on_duration_warning_threshold_exceeded:
+          - bruno.queles.dataeng@gmail.com
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 300
       schedule:
         quartz_cron_expression: 0 15 17 ? * MON-FRI
         timezone_id: America/Sao_Paulo
@@ -39,33 +56,97 @@ resources:
             base_parameters:
               modo_execucao: agendado
             source: WORKSPACE
+          health:
+            rules:
+              - metric: RUN_DURATION_SECONDS
+                op: GREATER_THAN
+                value: 300
           email_notifications:
             on_failure:
               - bruno.quelestech@outlook.com
+              - bruno.queles.dataeng@gmail.com
+            on_duration_warning_threshold_exceeded:
+              - bruno.queles.dataeng@gmail.com
         - task_key: bronze
           depends_on:
             - task_key: ingestao_landing
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/bronze/02_bronze
             source: WORKSPACE
+          health:
+            rules:
+              - metric: RUN_DURATION_SECONDS
+                op: GREATER_THAN
+                value: 300
+          email_notifications:
+            on_failure:
+              - bruno.queles.dataeng@gmail.com
+            on_duration_warning_threshold_exceeded:
+              - bruno.queles.dataeng@gmail.com
         - task_key: silver
           depends_on:
             - task_key: bronze
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/silver/03_silver
             source: WORKSPACE
+          health:
+            rules:
+              - metric: RUN_DURATION_SECONDS
+                op: GREATER_THAN
+                value: 300
+          email_notifications:
+            on_failure:
+              - bruno.queles.dataeng@gmail.com
+            on_duration_warning_threshold_exceeded:
+              - bruno.queles.dataeng@gmail.com
         - task_key: gold
           depends_on:
             - task_key: silver
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/gold/04_gold
             source: WORKSPACE
+          health:
+            rules:
+              - metric: RUN_DURATION_SECONDS
+                op: GREATER_THAN
+                value: 300
+          email_notifications:
+            on_failure:
+              - bruno.queles.dataeng@gmail.com
+            on_duration_warning_threshold_exceeded:
+              - bruno.queles.dataeng@gmail.com
         - task_key: reconciliacao
           depends_on:
             - task_key: gold
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/reconciliation/05_reconciliacao
             source: WORKSPACE
+          health:
+            rules:
+              - metric: RUN_DURATION_SECONDS
+                op: GREATER_THAN
+                value: 300
+          email_notifications:
+            on_failure:
+              - bruno.queles.dataeng@gmail.com
+            on_duration_warning_threshold_exceeded:
+              - bruno.queles.dataeng@gmail.com
+        - task_key: alerta_divergencia
+          depends_on:
+            - task_key: reconciliacao
+          notebook_task:
+            notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/reconciliation/06_alerta_divergencia
+            source: WORKSPACE
+          health:
+            rules:
+              - metric: RUN_DURATION_SECONDS
+                op: GREATER_THAN
+                value: 300
+          email_notifications:
+            on_failure:
+              - bruno.queles.dataeng@gmail.com
+            on_duration_warning_threshold_exceeded:
+              - bruno.queles.dataeng@gmail.com
       tags:
         ambiente: poc
         dominio: mercado-financeiro
