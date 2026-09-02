@@ -11,7 +11,7 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Teste de conectividade do Databricks Free Edition (API externa + GitHub)
 - [x] Catalog `poc_b3_modernizacao` e 6 schemas (landing, bronze, silver, gold, reconciliation, observability), com tags e descrição, criados via código
 - [x] Pipeline completo: Landing → Bronze → Silver → Gold (5 indicadores) → Reconciliação (D-1 automático) → Alerta de divergência
-- [x] Orquestração via Databricks Workflows (Job `pipeline_diario_b3`, **6 Tasks**, agendado dias úteis às 17h15)
+- [x] Orquestração via Databricks Workflows (Job `pipeline_diario_b3`, **7 Tasks**, agendado dias úteis às 17h15)
 - [x] Observabilidade (tabela `observability.pipeline_runs`) com try/except completo nos 5 notebooks do pipeline
 - [x] Alertas nativos (falha + duração, 2 e-mails com propósitos distintos) e alerta customizado de divergência anormal (limiar 1%)
 - [x] Databricks Secret Scope para credencial de e-mail (nunca em texto no código)
@@ -22,7 +22,8 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Simulação de FinOps (armazenamento + consumo de DBU), com identificação de gargalo real de escalabilidade
 - [x] [Lições aprendidas](docs/licoes-aprendidas.md)
 - [x] Documento de escalabilidade (4 → 500 tickers) e planilhas de custo — em `docs/anexos/`
-- [ ] Painel de observabilidade com falhas por notebook (dado real disponível, widget ainda pendente)
+- [x] Auditoria automática de execuções (11 de 12 anomalias históricas com causa raiz investigada)
+- [ ] Painel de observabilidade com falhas por notebook e anomalias de auditoria (dado real disponível, página 2 do Dashboard ainda pendente)
 - [ ] Recalibração do limiar de duração do Job (aguardando observação de execuções agendadas com 6 Tasks)
 - [ ] Investigação da execução dupla do Job (observada em 28/08 e 01/09, sem impacto de dado)
 - [ ] Diagrama de arquitetura final (visual)
@@ -72,13 +73,14 @@ b3-modernizacao-dados/
     ├── gold/
     ├── jobs/                    # definição do Databricks Workflow (YAML exportado)
     ├── reconciliation/
+    ├── auditoria/                # detecção automática de anomalias no histórico de execução
     └── tests/                   # notebooks de validação técnica (ex.: teste de conectividade)
 ```
 
 ## Como rodar
 
 1. **KNIME**: abrir `knime/b3_pipeline_legado.knwf` no KNIME Analytics Platform, ajustar a data nos CSV Writers, executar "Execute all". Gera dois CSVs versionados por data em `knime/`, e exportar novamente o `.knwf`.
-2. **Databricks**: conectar o workspace ao repositório via Git folder, dar Pull. O pipeline completo roda via Job `pipeline_diario_b3` (agendado dias úteis às 17h15) ou manualmente, notebook por notebook, na ordem `setup/00_setup_catalog` → `setup/01_utilitarios_pipeline` → `landing/01_ingestao_landing` → `bronze/02_bronze` → `silver/03_silver` → `gold/04_gold` → `reconciliation/05_reconciliacao` → `reconciliation/06_alerta_divergencia`.
+2. **Databricks**: conectar o workspace ao repositório via Git folder, dar Pull. O pipeline completo roda via Job `pipeline_diario_b3` (agendado dias úteis às 17h15) ou manualmente, notebook por notebook, na ordem `setup/00_setup_catalog` → `setup/01_utilitarios_pipeline` → `landing/01_ingestao_landing` → `bronze/02_bronze` → `silver/03_silver` → `gold/04_gold` → `reconciliation/05_reconciliacao` → `reconciliation/06_alerta_divergencia` → `auditoria/07_auditoria_execucoes`.
 3. **Camada de consumo**: AI/BI Dashboard "B3 - Modernização de Dados" e Genie Space "Genie B3 - Modernização de Dados", ambos no workspace do Databricks, atualizando automaticamente conforme novos dados entram na Gold e na Reconciliação.
 
 ## Documentação completa
@@ -103,6 +105,7 @@ b3-modernizacao-dados/
 - [ADR-12 — Alertas nativos de falha e duração no Job](docs/adr/adr-12-alertas-nativos-falha-duracao.md)
 - [ADR-13 — Try/except completo no pipeline e alerta de divergência anormal aditivo](docs/adr/adr-13-tryexcept-completo-alerta-divergencia.md)
 - [ADR-14 — Simulação de FinOps: armazenamento e consumo de DBU](docs/adr/adr-14-finops-armazenamento-dbu.md)
+- [ADR-15 — Auditoria automática de execuções, preservando investigação humana](docs/adr/adr-15-auditoria-automatica-execucoes.md)
 
 ## Limitações conhecidas
 

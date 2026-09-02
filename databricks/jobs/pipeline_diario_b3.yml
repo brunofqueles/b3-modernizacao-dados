@@ -1,20 +1,25 @@
 # Definicao do Job "pipeline_diario_b3"
 #
 # Este arquivo e uma exportacao (via "View as code" no Databricks Jobs UI)
-# da configuracao real do Job em producao, incluindo as 6 tasks (ingestao,
-# bronze, silver, gold, reconciliacao, alerta_divergencia), suas dependencias,
-# agendamento (17:15, dias uteis, America/Sao_Paulo) e notificacao de falha
-# e duracao por e-mail (2 enderecos, com propositos distintos - ver ADR-12).
+# da configuracao real do Job em producao, incluindo as 7 tasks (ingestao,
+# bronze, silver, gold, reconciliacao, alerta_divergencia, auditoria_execucoes),
+# suas dependencias, agendamento (17:15, dias uteis, America/Sao_Paulo) e
+# notificacao de falha e duracao por e-mail (2 enderecos, com propositos
+# distintos - ver ADR-12).
 #
 # A task "reconciliacao" compara Gold vs. KNIME automaticamente para o dia
 # anterior (D-1), detectado dinamicamente a partir da ultima data disponivel
-# na gold.indice_proxy — nao depende de calendario fixo, adaptando-se
-# automaticamente a fins de semana e feriados sem dado. Ver ADR-10.
+# na gold.indice_proxy — nao depende de calendario fixo. Ver ADR-10.
 #
 # A task "alerta_divergencia" e aditiva: le o resultado ja gravado pela task
 # "reconciliacao" e dispara um e-mail apenas quando a divergencia entre KNIME
-# e Databricks ultrapassa um limiar de anormalidade (1%, calibrado pelo maior
-# valor ja observado no projeto) - nao altera a logica de reconciliacao.
+# e Databricks ultrapassa um limiar de anormalidade (1%). Ver ADR-13.
+#
+# A task "auditoria_execucoes" detecta automaticamente padroes de execucao que
+# merecem explicacao (execucoes proximas, gaps, duracao anormal), gravando em
+# tabelas proprias com insercao apenas de registros novos (preserva qualquer
+# causa raiz anotada manualmente apos investigacao humana - a deteccao e
+# automatica, a explicacao continua sendo trabalho humano). Ver ADR próprio.
 #
 # Proposito: versionamento e documentacao viva da orquestracao do pipeline,
 # servindo como primeiro passo em direcao a uma futura adocao de Databricks
@@ -144,6 +149,23 @@ resources:
                 value: 300
           email_notifications:
             on_failure:
+              - bruno.queles.dataeng@gmail.com
+            on_duration_warning_threshold_exceeded:
+              - bruno.queles.dataeng@gmail.com
+        - task_key: auditoria_execucoes
+          depends_on:
+            - task_key: alerta_divergencia
+          notebook_task:
+            notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/auditoria/07_auditoria_execucoes
+            source: WORKSPACE
+          health:
+            rules:
+              - metric: RUN_DURATION_SECONDS
+                op: GREATER_THAN
+                value: 300
+          email_notifications:
+            on_failure:
+              - bruno.quelestech@outlook.com
               - bruno.queles.dataeng@gmail.com
             on_duration_warning_threshold_exceeded:
               - bruno.queles.dataeng@gmail.com
