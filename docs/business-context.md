@@ -16,16 +16,15 @@ Este projeto simula esse cenário de ponta a ponta, com escopo reduzido para cab
 
 ## 2. Por que o índice-proxy, e o que ele representa
 
-O projeto calcula um **índice-proxy** e três indicadores complementares, todos derivados dos mesmos 4 papéis (PETR4, VALE3, MGLU3, ITUB4), gerados de forma automatizada na camada Gold. O índice-proxy em si não é a metodologia oficial de nenhum índice real da B3 (como o Ibovespa, que usa critérios de liquidez, free float e peso de capitalização) — é uma simplificação deliberada, documentada com essa ressalva desde o início ([ADR-01](adr/adr-01-ingestao-independente-landing.md), `architecture.md`).
+O projeto calcula um **índice-proxy** e quatro indicadores complementares, todos derivados dos mesmos 4 papéis (PETR4, VALE3, MGLU3, ITUB4), gerados de forma automatizada na camada Gold. O índice-proxy em si não é a metodologia oficial de nenhum índice real da B3 (como o Ibovespa, que usa critérios de liquidez, free float e peso de capitalização) — é uma simplificação deliberada, documentada com essa ressalva desde o início ([ADR-01](adr/adr-01-ingestao-independente-landing.md), `architecture.md`).
 
-**Os 4 indicadores calculados, e como interpretar cada um:**
+**Os 5 indicadores calculados, e como interpretar cada um:**
 
 - **Retorno diário por ticker**: `(preço atual - fechamento anterior) / fechamento anterior`, expresso em percentual. Um valor de `0,65%`, por exemplo, significa que o papel valorizou 0,65% no dia.
 - **Índice-proxy**: a média simples dos 4 retornos diários. Representa, de forma simplificada, "como esses 4 papéis se comportaram, em média, no dia" — não uma medida de mercado amplo.
 - **Ranking de valorização**: ordena os 4 papéis do maior para o menor retorno do dia, respondendo diretamente "quais ações mais se valorizaram?".
 - **Dispersão do dia**: o desvio padrão dos 4 retornos diários. Um valor baixo indica que os papéis se moveram de forma parecida entre si naquele dia; um valor alto indica que alguns subiram e outros caíram, ou que a intensidade do movimento variou bastante entre eles.
-
-**Indicador pendente, documentado deliberadamente:** variação acumulada do índice entre dias consecutivos (ex.: "como o índice evoluiu de 27/08 para 28/08"). Ainda não implementado porque depende de pelo menos 2 dias de dados válidos — assim que a janela de reconciliação (27/08, 28/08, 31/08) avançar, esse é o próximo indicador natural a ser adicionado. Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md).
+- **Índice acumulado (base 100)**: evolução do índice-proxy desde o início da janela de dados (27/08/2026), usando capitalização composta — o mesmo princípio de índices de mercado reais. Um valor de `100,03`, por exemplo, indica uma valorização acumulada de 0,03% desde o início da série. Ver [ADR-09](adr/adr-09-indice-acumulado-capitalizacao-composta.md).
 
 A escolha por proxy simplificado (em vez de tentar replicar a metodologia oficial de um índice real) foi consciente: dentro do prazo do projeto, não havia uma fonte gratuita confirmada para a carteira teórica oficial de um índice real, e apresentar um proxy como se fosse metodologia oficial seria uma imprecisão grave numa conversa técnica sobre mercado de capitais.
 
@@ -43,6 +42,7 @@ Este projeto foi construído deliberadamente para evidenciar, além do resultado
 - **Documentação organizada e evolutiva**: README, arquitetura e contexto de negócio como documentos vivos, atualizados ao longo da construção do projeto (não escritos de uma vez no fim), com histórico real de commits mostrando a evolução.
 - **Prova de migração real, não só de output**: a decisão de KNIME e Databricks consumirem a fonte de forma independente ([ADR-01](adr/adr-01-ingestao-independente-landing.md)) existe especificamente para que a reconciliação final prove que a *lógica de negócio* foi migrada — não apenas que um sistema copia a saída do outro.
 - **Honestidade técnica sobre limitações**: o índice como proxy simplificado, os limites da Free Edition, o que ficou como evolução futura (ex.: Databricks Asset Bundles) — tudo documentado explicitamente, em vez de omitido ou apresentado como mais robusto do que é.
+- **Consciência de FinOps**: mesmo operando em ambiente gratuito (Free Edition), o projeto simulou o custo de uma operação paga (armazenamento e consumo de DBU), com premissas publicamente citadas e claramente separadas de dado medido — culminando na identificação de um gargalo técnico real (chamadas de API sequenciais) que se tornaria o principal driver de custo numa escala maior, não o volume de dado em si. Ver [ADR-14](adr/adr-14-finops-armazenamento-dbu.md).
 
 ## 5. Conexão direta com os requisitos da vaga simulada
 
@@ -57,3 +57,4 @@ Este projeto foi construído deliberadamente para evidenciar, além do resultado
 | Dados financeiros/mercado de capitais | Cotações reais da B3 via `brapi.dev`, cálculo de retorno diário e índice-proxy |
 | IA aplicada a desenvolvimento | Uso de IA como copiloto ao longo de toda a construção do projeto (este próprio processo de desenvolvimento assistido) |
 | Data Governance e Data Quality | Unity Catalog, regra de qualidade com quarentena na Silver, ADRs documentando decisões de governança de dados |
+| FinOps / gestão de custos | Simulação de custo de armazenamento (Databricks e Azure) e de consumo de DBU, com identificação de um gargalo técnico real que impactaria custo em escala |
