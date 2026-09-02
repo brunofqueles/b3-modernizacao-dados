@@ -19,8 +19,9 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Genie Space configurado e testado (acesso curado, instruções de domínio, 3 exemplos)
 - [x] Janela de reconciliação completa (27/08, 28/08, 31/08)
 - [x] 13 ADRs documentando cada decisão técnica
+- [x] Simulação de FinOps (armazenamento + consumo de DBU), com identificação de gargalo real de escalabilidade
 - [x] [Lições aprendidas](docs/licoes-aprendidas.md)
-- [x] Documento de escalabilidade (4 → 500 tickers) — material de apoio, fora da documentação formal
+- [x] Documento de escalabilidade (4 → 500 tickers) e planilhas de custo — em `docs/anexos/`
 - [ ] Painel de observabilidade com falhas por notebook (dado real disponível, widget ainda pendente)
 - [ ] Recalibração do limiar de duração do Job (aguardando observação de execuções agendadas com 6 Tasks)
 - [ ] Investigação da execução dupla do Job (observada em 28/08 e 01/09, sem impacto de dado)
@@ -60,7 +61,8 @@ KNIME e Databricks consomem a **mesma fonte de forma independente** — o Databr
 ```
 b3-modernizacao-dados/
 ├── docs/
-│   └── adr/                     # decisões de arquitetura, uma por arquivo
+│   ├── adr/                     # decisões de arquitetura, uma por arquivo
+│   └── anexos/                  # planilhas de custo (FinOps) e documento de escalabilidade
 ├── knime/                       # workflow .knwf + CSVs de saída (versionados por data)
 └── databricks/
     ├── setup/                   # criação de catalog/schemas e funções utilitárias compartilhadas
@@ -100,6 +102,7 @@ b3-modernizacao-dados/
 - [ADR-11 — Camada de consumo executivo: AI/BI Dashboard e Genie Space](docs/adr/adr-11-dashboard-genie-consumo-executivo.md)
 - [ADR-12 — Alertas nativos de falha e duração no Job](docs/adr/adr-12-alertas-nativos-falha-duracao.md)
 - [ADR-13 — Try/except completo no pipeline e alerta de divergência anormal aditivo](docs/adr/adr-13-tryexcept-completo-alerta-divergencia.md)
+- [ADR-14 — Simulação de FinOps: armazenamento e consumo de DBU](docs/adr/adr-14-finops-armazenamento-dbu.md)
 
 ## Limitações conhecidas
 
@@ -116,4 +119,4 @@ b3-modernizacao-dados/
 - Painel de observabilidade do dashboard com falhas por notebook.
 - Propagação consistente de `modo_execucao` via Widget em todos os notebooks (hoje só `01` e `02` têm esse Widget).
 - Governança de acesso (RBAC real no Unity Catalog) — hoje documentada como modelo pretendido.
-- Escalabilidade de 4 para uma lista maior de tickers — ver documento de referência técnica dedicado (não incluído neste repositório).
+- Escalabilidade de 4 para uma lista maior de tickers — ver documento de referência técnica dedicado (`docs/anexos/`). Gargalo identificado: chamadas de API sequenciais na ingestão seriam o principal driver de tempo/custo em escala, não o volume de dado (ver [ADR-14](docs/adr/adr-14-finops-armazenamento-dbu.md)).
