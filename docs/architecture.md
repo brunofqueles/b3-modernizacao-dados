@@ -30,7 +30,9 @@ brapi.dev (API)     ──┬──> KNIME (transforma,
 
 KNIME e Databricks consomem a **mesma fonte de forma independente** (ver [ADR-01](adr/adr-01-ingestao-independente-landing.md)) — o Databricks não lê o CSV de saída do KNIME em nenhum ponto do fluxo Bronze/Silver/Gold.
 
-> **Correção de escopo (27/08):** a comparação histórica entre KNIME e Databricks cobre **27/08, 28/08 e 31/08** — não 26/08. A infraestrutura Databricks (catalog, schemas, Volume) só foi criada em 27/08, e a API `brapi.dev` não permite obter retroativamente o preço de um dia anterior à criação. O CSV do KNIME de 26/08 permanece no repositório como primeiro registro histórico do sistema legado, mas fica fora da janela de reconciliação de 3 dias.
+> **Correção de escopo (27/08):** a comparação histórica entre KNIME e Databricks cobre **27/08, 28/08 e 31/08** — não 26/08. A infraestrutura Databricks (catalog, schemas, Volume) só foi criada em 27/08, e a API `brapi.dev` não permite obter retroativamente o preço de um dia anterior à criação. O CSV do KNIME de 26/08 permanece no repositório como primeiro registro histórico do sistema legado, mas fica fora da janela de reconciliação.
+>
+> **Segunda correção de escopo (03/09):** um bug de cache no KNIME (ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md)) manteve o resultado congelado de 27/08 em todas as execuções seguintes até 01/09 — o `GET Request` nunca capturou dado novo nesse período, apesar da data do arquivo mudar a cada dia. **A janela de reconciliação genuinamente válida (dado real dos dois lados) começa apenas em 02/09/2026**, não em 27/08 como documentado anteriormente. As reconciliações de 27/08 a 01/09 permanecem no histórico, com causa raiz corrigida, mas não provam nem invalidam a migração — um dos dois lados nunca teve dado real nesse período.
 
 ### Unity Catalog — convenção de nomes
 
@@ -55,7 +57,7 @@ Todos os catalog/schemas têm descrição registrada no momento da criação. A 
 | **Bronze** | Tabelas Delta, cópia fiel da fonte, imutável. | ✅ Implementado (`databricks/bronze/02_bronze`) — validação de integridade, ver [ADR-03](adr/adr-03-merge-bronze-validacao-integridade.md) |
 | **Silver** | Tipagem, deduplicação, pelo menos 1 regra de qualidade com tabela de quarentena (ex.: preço nulo/negativo desviado, sem quebrar o pipeline). | ✅ Implementado (`databricks/silver/03_silver`) — quarentena unificada, ver [ADR-04](adr/adr-04-quarentena-dedup-schema-silver.md) |
 | **Gold** | Cálculo do índice-proxy em PySpark/SQL, orquestrado como Job no Databricks Workflows. | ✅ Implementado (`databricks/gold/04_gold`) — 5 indicadores (incluindo índice acumulado), ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md), [ADR-09](adr/adr-09-indice-acumulado-capitalizacao-composta.md). Orquestração via Job implementada, ver [ADR-06](adr/adr-06-orquestracao-workflows-yaml.md). |
-| **Reconciliação** | Notebook comparando Gold (Databricks) com a saída do KNIME — contagem de linhas e valor do índice, por data (27/08, 28/08, 31/08). | ✅ Implementado, **automatizado via Job (D-1)** — ver [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md) |
+| **Reconciliação** | Notebook comparando Gold (Databricks) com a saída do KNIME — contagem de linhas e valor do índice, por data. | ✅ Implementado, **automatizado via Job (D-1)** — janela genuinamente válida a partir de 02/09 (ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md)). Ver [ADR-10](adr/adr-10-reconciliacao-d1-automatizada.md) |
 
 ## 4. Componentes e justificativa
 
@@ -63,7 +65,7 @@ Todos os catalog/schemas têm descrição registrada no momento da criação. A 
 |---|---|
 | **brapi.dev** | API REST gratuita, sandbox funciona sem token para os tickers escolhidos — preferida ao `.zip` oficial da B3 (COTAHIST), incompatível com o prazo do projeto. |
 | **Volume UC como landing, antes da Bronze** | Desacopla "buscar o dado" de "estruturar o dado em tabela", preserva a resposta bruta como evidência auditável. Ver [ADR-01](adr/adr-01-ingestao-independente-landing.md). |
-| **KNIME e Databricks consumindo a fonte de forma independente** | Sustenta a reconciliação Gold vs. KNIME como prova de migração de lógica de negócio, não apenas de output. Ver [ADR-01](adr/adr-01-ingestao-independente-landing.md). |
+| **KNIME e Databricks consumindo a fonte de forma independente** | Sustenta a reconciliação Gold vs. KNIME como prova de migração de lógica de negócio, não apenas de output. **Validado na prática, não só em teoria**: um bug de cache que travou o KNIME por 6 dias (ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md)) nunca contaminou o pipeline Databricks, exatamente por essa independência. Ver [ADR-01](adr/adr-01-ingestao-independente-landing.md). |
 | **CSVs do KNIME e JSONs do Volume versionados por data** | Permite comparação histórica real entre execuções de dias diferentes, em vez de um único snapshot sobrescrito. |
 | **Widgets (`dbutils.widgets`) no notebook de ingestão** | Parametrização de ticker, data de referência e modo de execução — permite reprocessamento pontual e isolamento de um único papel sem editar código. Ver [ADR-02](adr/adr-02-widgets-idempotencia-landing.md). |
 | **Databricks Workflows para orquestração** | Nativo, sem custo extra, disponível na Free Edition — orquestra Bronze → Silver → Gold como Job. |
@@ -98,6 +100,7 @@ Todos os catalog/schemas têm descrição registrada no momento da criação. A 
 | Job `pipeline_diario_b3` executando duas vezes, próximo uma da outra, em pelo menos 2 dias (28/08, 01/09) | **Investigado e explicado** — reprocessamentos manuais legítimos (sincronização tardia do KNIME em 28/08; testes de try/except em 01/09), não erro de sistema. Sem impacto de dado (MERGE idempotente). Ver [ADR-15](adr/adr-15-auditoria-automatica-execucoes.md). |
 | Execução de `01_ingestao_landing` em 01/09 (19h39) com duração anormal (157,87s, 2,57 desvios-padrão acima da média) | Causa não confirmada — autor notou a lentidão, mas sem registro do motivo exato (possível latência de rede pontual). Registrado como "requer atenção", não descartado. Ver [ADR-15](adr/adr-15-auditoria-automatica-execucoes.md). |
 | Limiar de duração do Job (5 min) próximo ou abaixo do tempo real após a 6ª Task (5,49 min numa execução manual) | Alerta pode disparar em execuções normais, virando ruído. Recalibração planejada, aguardando observação de execuções agendadas reais antes de ajustar o número. Ver [ADR-13](adr/adr-13-tryexcept-completo-alerta-divergencia.md). |
+| KNIME preservando estado de execução em cache junto com o workflow salvo — "Execute all" não força reexecução de nós que aparentam já estar prontos | **Descoberto e corrigido em 03/09** — o `GET Request` e o cálculo do índice-proxy ficaram travados no resultado de 27/08 até 01/09, invalidando a reconciliação desse período. Corrigido via `Reset all` antes de `Execute all`, agora parte do processo operacional padrão do projeto. Ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md). |
 
 ## 7. Evolução — possíveis próximos passos
 
@@ -120,7 +123,7 @@ Registradas aqui deliberadamente, mesmo as que ainda não têm resposta plena pe
 ✅ Respondível pelo pipeline desde a conclusão da Gold: `gold.indicadores_diarios`, coluna `ranking_valorizacao`, ordenada por `retorno_diario_pct`. Ver [ADR-05](adr/adr-05-indicadores-gold-automatizada.md).
 
 **Quando podemos encerrar o fluxo do KNIME?**
-Já respondível conceitualmente: o KNIME existe exclusivamente para sustentar a reconciliação (prova de que a lógica de negócio foi preservada na migração). Pode ser formalmente encerrado após a conclusão e validação da janela de reconciliação de 3 dias (27/08, 28/08, 31/08) — a partir daí, não tem mais função no projeto.
+Já respondível conceitualmente: o KNIME existe exclusivamente para sustentar a reconciliação (prova de que a lógica de negócio foi preservada na migração). Pode ser formalmente encerrado após acumular uma janela sólida de reconciliações **genuinamente válidas** — ou seja, a partir de 02/09/2026 em diante (ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md); as reconciliações de 27/08 a 01/09 não contam, por um bug de cache do KNIME que invalidou o dado desse período).
 
 **O que usamos para o fluxo de CI/CD?**
 Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git: branch → commit → PR → merge), que é disciplina de versionamento, não integração/entrega contínua. Um CI/CD real (testes automatizados por PR, deploy automatizado de notebooks/Jobs, validação de schema antes de promover) depende de **Databricks Asset Bundles**, já registrado como evolução futura (seção 7) e não implementado por restrição de prazo — decisão consciente, não lacuna não percebida.
@@ -143,11 +146,12 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - [ADR-13 — Try/except completo no pipeline e alerta de divergência anormal aditivo](adr/adr-13-tryexcept-completo-alerta-divergencia.md)
 - [ADR-14 — Simulação de FinOps: armazenamento e consumo de DBU](adr/adr-14-finops-armazenamento-dbu.md)
 - [ADR-15 — Auditoria automática de execuções, preservando investigação humana](adr/adr-15-auditoria-automatica-execucoes.md)
+- [ADR-16 — Bug de cache no KNIME: dados congelados invalidam a reconciliação de 27/08 a 01/09](adr/adr-16-bug-cache-knime-janela-reconciliacao.md)
 
 **Infraestrutura já criada:**
 - Repositório GitHub estruturado (`docs/adr`, `knime`, `databricks/{setup,landing,bronze,silver,gold,jobs,reconciliation,tests}`)
 - Git folder conectando o Databricks ao repositório
-- Workflow KNIME completo e funcional, 5 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09)
+- Workflow KNIME completo e funcional, 6 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09) — as 5 primeiras afetadas por um bug de cache não percebido na hora (ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md)), corrigido em 02/09.
 - Catalog `poc_b3_modernizacao` e os 6 schemas (`landing`, `bronze`, `silver`, `gold`, `reconciliation`, `observability`), criados via código
 - Volume `poc_b3_modernizacao.landing.raw`
 - Tabelas: `bronze.cotacoes`, `silver.cotacoes`, `silver.cotacoes_quarentena`, `gold.indicadores_diarios`, `gold.indice_proxy`, `gold.indice_acumulado`, `reconciliation.resultado_indice`, `reconciliation.resultado_detalhado`, `observability.pipeline_runs`, `observability.auditoria_anomalias`, `observability.auditoria_gaps`
@@ -176,8 +180,8 @@ Hoje, nada equivalente a CI/CD real — o que existe é controle de versão (Git
 - 10 registros de teste (7 falhas propositais + 3 sucessos com timestamp confuso) identificados e removidos de `observability.pipeline_runs`. Ver [ADR-13](adr/adr-13-tryexcept-completo-alerta-divergencia.md).
 
 **Estado dos dados:**
-- CSVs do KNIME: 26/08 (fora da janela), 27/08, 28/08, 31/08 e 01/09 (válidos).
-- Reconciliação: 27/08 processado (`diverge`, causa raiz documentada, defasagem de horário).
+- CSVs do KNIME: 26/08 a 01/09 gravados com dado congelado por bug de cache (ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md)), causa raiz corrigida nas tabelas de reconciliação; 02/09 em diante com dado real.
+- Reconciliação: 27/08 a 01/09 registradas mas não-probatórias (causa raiz corrigida para refletir o bug de cache); 02/09 é o primeiro dia genuinamente válido.
 - Índice acumulado: base 100 em 27/08, evoluindo conforme novos dias são processados.
 
-**Próximo passo real:** página 2 do Dashboard, dedicada à observabilidade técnica (movendo o painel atual e adicionando anomalias/gaps da auditoria); diagrama de arquitetura final; determinar causa do caso de duração anormal ainda em aberto; avaliar paralelização/lote das chamadas de API na ingestão antes de qualquer escala real (gargalo identificado na simulação de FinOps — ver [ADR-14](adr/adr-14-finops-armazenamento-dbu.md)).
+**Próximo passo real:** retomar a construção da página 2 do Dashboard (pausada para investigar e corrigir o bug de cache do KNIME — ver [ADR-16](adr/adr-16-bug-cache-knime-janela-reconciliacao.md)); diagrama de arquitetura final; determinar causa do caso de duração anormal ainda em aberto; avaliar paralelização/lote das chamadas de API na ingestão antes de qualquer escala real (gargalo identificado na simulação de FinOps — ver [ADR-14](adr/adr-14-finops-armazenamento-dbu.md)).
