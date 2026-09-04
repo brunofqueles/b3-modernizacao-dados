@@ -15,7 +15,7 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Observabilidade (tabela `observability.pipeline_runs`) com try/except completo nos 5 notebooks do pipeline
 - [x] Alertas nativos (falha + duração, 2 e-mails com propósitos distintos) e alerta customizado de divergência anormal (limiar 1%)
 - [x] Databricks Secret Scope para credencial de e-mail (nunca em texto no código)
-- [x] AI/BI Dashboard publicado (índice acumulado, ranking, reconciliação, observabilidade)
+- [x] AI/BI Dashboard publicado — **2 páginas**: "Visão Geral" (executiva) e "Observabilidade Técnica" (histórico de execuções, anomalias, gaps, indicadores de saúde)
 - [x] Genie Space configurado e testado (acesso curado, instruções de domínio, 3 exemplos)
 - [x] ADR-16: bug de cache no KNIME descoberto e corrigido — janela de reconciliação genuinamente válida a partir de 02/09
 - [x] Janela de reconciliação processada (27/08 a 02/09) — **válida como prova de migração apenas a partir de 02/09** (dias anteriores afetados por bug de cache do KNIME, causa raiz corrigida)
@@ -24,7 +24,7 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] [Lições aprendidas](docs/licoes-aprendidas.md)
 - [x] Documento de escalabilidade (4 → 500 tickers) e planilhas de custo — em `docs/anexos/`
 - [x] Auditoria automática de execuções (11 de 12 anomalias históricas com causa raiz investigada)
-- [ ] Painel de observabilidade com falhas por notebook e anomalias de auditoria (dado real disponível, página 2 do Dashboard ainda pendente)
+- [x] Saúde operacional: 77 execuções, 100% sucesso, 0 gaps (ver `docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md` e ADR-15 para o mecanismo de auditoria)
 - [ ] Recalibração do limiar de duração do Job (aguardando observação de execuções agendadas com 6 Tasks)
 - [ ] Investigação da execução dupla do Job (observada em 28/08 e 01/09, sem impacto de dado)
 - [ ] Diagrama de arquitetura final (visual)
@@ -108,6 +108,7 @@ b3-modernizacao-dados/
 - [ADR-14 — Simulação de FinOps: armazenamento e consumo de DBU](docs/adr/adr-14-finops-armazenamento-dbu.md)
 - [ADR-15 — Auditoria automática de execuções, preservando investigação humana](docs/adr/adr-15-auditoria-automatica-execucoes.md)
 - [ADR-16 — Bug de cache no KNIME: dados congelados invalidam a reconciliação de 27/08 a 01/09](docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md)
+- [ADR-17 — Dashboard: correções de dado, causa raiz dinâmica e página de observabilidade técnica](docs/adr/adr-17-dashboard-correcoes-observabilidade-tecnica.md)
 
 ## Limitações conhecidas
 
@@ -121,7 +122,6 @@ b3-modernizacao-dados/
 
 - Adoção de **Databricks Asset Bundles (DAB)** para deploy e CI/CD estruturado entre ambientes — não implementado neste projeto por restrição de prazo, mas reconhecido como padrão mais robusto para produção.
 - Agente de automação de commit/PR via API do GitHub (mecânica já validada em projeto anterior) — candidato a extra, condicionado a sobra de tempo no cronograma.
-- Painel de observabilidade do dashboard com falhas por notebook.
 - Propagação consistente de `modo_execucao` via Widget em todos os notebooks (hoje só `01` e `02` têm esse Widget).
 - Governança de acesso (RBAC real no Unity Catalog) — hoje documentada como modelo pretendido.
 - Escalabilidade de 4 para uma lista maior de tickers — ver documento de referência técnica dedicado (`docs/anexos/`). Gargalo identificado: chamadas de API sequenciais na ingestão seriam o principal driver de tempo/custo em escala, não o volume de dado (ver [ADR-14](docs/adr/adr-14-finops-armazenamento-dbu.md)).

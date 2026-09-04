@@ -58,6 +58,8 @@
 
 **A arquitetura de ingestão independente (ADR-01) não era só uma boa ideia no papel — ela realmente conteve o dano.** Se o Databricks tivesse qualquer dependência do output do KNIME, o bug de cache poderia ter se propagado para o novo pipeline também. O fato de Bronze/Silver/Gold terem permanecido corretos o tempo todo, apesar do KNIME estar quebrado, é a prova mais concreta que o projeto teve até agora de que aquela decisão de arquitetura, tomada no primeiro dia, valeu a pena.
 
+**Um gráfico pode "funcionar" tecnicamente e ainda assim mostrar um número errado — testar visualização com dado real, não só configurar e assumir que está certo, é obrigatório.** O painel de Ranking exibia -43% quando o valor real era -0,43%, porque a formatação de percentual do widget multiplicou por 100 um valor que já vinha em percentual do banco. Nada gerou erro técnico — o gráfico renderizou normalmente, só que com um número 100 vezes maior que o real, o tipo de erro mais perigoso justamente por não parecer quebrado.
+
 ## 4. Resultado
 
 O projeto foi apresentado com sucesso e avançou para a etapa final do processo seletivo — validação prática de que a combinação de honestidade técnica (documentar limitações e não apenas conquistas), profundidade de arquitetura (Medallion completo, reconciliação real, observabilidade) e cuidado na camada de consumo (Dashboard e Genie testados antes da apresentação, não na hora) formou um material técnico e narrativo coerente.
