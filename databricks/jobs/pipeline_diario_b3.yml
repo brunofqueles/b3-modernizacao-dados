@@ -7,6 +7,14 @@
 # notificacao de falha e duracao por e-mail (2 enderecos, com propositos
 # distintos - ver ADR-12).
 #
+# Todas as 7 tasks passam o Parameter modo_execucao=agendado explicitamente.
+# Essa correcao (04/09) resolveu uma inconsistencia real: 4 notebooks
+# (silver, gold, reconciliacao, auditoria_execucoes) nao tinham Widget de
+# modo_execucao e gravavam "reprocessamento_manual" fixo no codigo mesmo
+# quando disparados pelo Job; e a task "bronze" nunca teve o Parameter
+# configurado, funcionando apenas porque o valor padrao do seu Widget
+# coincidia com "agendado" - nao por configuracao correta.
+#
 # A task "reconciliacao" compara Gold vs. KNIME automaticamente para o dia
 # anterior (D-1), detectado dinamicamente a partir da ultima data disponivel
 # na gold.indice_proxy — nao depende de calendario fixo. Ver ADR-10.
@@ -18,8 +26,7 @@
 # A task "auditoria_execucoes" detecta automaticamente padroes de execucao que
 # merecem explicacao (execucoes proximas, gaps, duracao anormal), gravando em
 # tabelas proprias com insercao apenas de registros novos (preserva qualquer
-# causa raiz anotada manualmente apos investigacao humana - a deteccao e
-# automatica, a explicacao continua sendo trabalho humano). Ver ADR próprio.
+# causa raiz anotada manualmente apos investigacao humana). Ver ADR-15.
 #
 # Proposito: versionamento e documentacao viva da orquestracao do pipeline,
 # servindo como primeiro passo em direcao a uma futura adocao de Databricks
@@ -77,6 +84,8 @@ resources:
             - task_key: ingestao_landing
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/bronze/02_bronze
+            base_parameters:
+              modo_execucao: agendado
             source: WORKSPACE
           health:
             rules:
@@ -93,6 +102,8 @@ resources:
             - task_key: bronze
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/silver/03_silver
+            base_parameters:
+              modo_execucao: agendado
             source: WORKSPACE
           health:
             rules:
@@ -109,6 +120,8 @@ resources:
             - task_key: silver
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/gold/04_gold
+            base_parameters:
+              modo_execucao: agendado
             source: WORKSPACE
           health:
             rules:
@@ -125,6 +138,8 @@ resources:
             - task_key: gold
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/reconciliation/05_reconciliacao
+            base_parameters:
+              modo_execucao: agendado
             source: WORKSPACE
           health:
             rules:
@@ -157,6 +172,8 @@ resources:
             - task_key: alerta_divergencia
           notebook_task:
             notebook_path: /Workspace/Users/bruno.quelestech@outlook.com/b3-modernizacao-dados/databricks/auditoria/07_auditoria_execucoes
+            base_parameters:
+              modo_execucao: agendado
             source: WORKSPACE
           health:
             rules:
