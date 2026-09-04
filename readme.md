@@ -4,7 +4,7 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 
 ## Status do projeto
 
-✅ MVP concluído — projeto apresentado com sucesso, aprovado para etapa final — última atualização: 01/09/2026
+✅ MVP concluído — projeto apresentado com sucesso, aprovado para etapa final — última atualização: 04/09/2026
 
 - [x] Repositório estruturado, com Git folders conectando o Databricks ao GitHub
 - [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy — 7 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09, 03/09)
@@ -18,16 +18,16 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] AI/BI Dashboard publicado — **2 páginas**: "Visão Geral" (executiva) e "Observabilidade Técnica" (histórico de execuções, anomalias, gaps, indicadores de saúde)
 - [x] Genie Space configurado e testado (acesso curado, instruções de domínio, 3 exemplos)
 - [x] ADR-16: bug de cache no KNIME descoberto e corrigido — janela de reconciliação genuinamente válida a partir de 02/09
-- [x] Janela de reconciliação processada (27/08 a 02/09) — **válida como prova de migração apenas a partir de 02/09** (dias anteriores afetados por bug de cache do KNIME, causa raiz corrigida)
-- [x] 13 ADRs documentando cada decisão técnica
+- [x] Janela de reconciliação processada (27/08 a 03/09) — **válida como prova de migração apenas a partir de 02/09** (dias anteriores afetados por bug de cache do KNIME, causa raiz corrigida)
+- [x] 17 ADRs documentando cada decisão técnica
 - [x] Simulação de FinOps (armazenamento + consumo de DBU), com identificação de gargalo real de escalabilidade
 - [x] [Lições aprendidas](docs/licoes-aprendidas.md)
 - [x] Documento de escalabilidade (4 → 500 tickers) e planilhas de custo — em `docs/anexos/`
 - [x] Auditoria automática de execuções (11 de 12 anomalias históricas com causa raiz investigada)
 - [x] Saúde operacional: 77 execuções, 100% sucesso, 0 gaps (ver `docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md` e ADR-15 para o mecanismo de auditoria)
+- [x] Diagrama de arquitetura final (visual)
+- [x] Investigação da execução dupla do Job (observada em 28/08 e 01/09, sem impacto de dado)
 - [ ] Recalibração do limiar de duração do Job (5 min já superado em ao menos uma execução com as 7 Tasks — aguardando mais amostras antes de decidir novo valor)
-- [ ] Investigação da execução dupla do Job (observada em 28/08 e 01/09, sem impacto de dado)
-- [ ] Diagrama de arquitetura final (visual)
 
 > **Nota sobre a janela de reconciliação:** a comparação histórica entre KNIME e Databricks foi processada de 27/08 a 02/09, mas **só é genuinamente válida como prova de migração a partir de 02/09/2026** — um bug de cache no KNIME (ver [ADR-16](docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md)) manteve o resultado congelado de 27/08 em todas as execuções seguintes até 01/09, sem que o `GET Request` capturasse dado novo nesse período. As reconciliações desse intervalo permanecem no histórico, com causa raiz corrigida, mas não provam nem invalidam a migração.
 
@@ -65,7 +65,7 @@ b3-modernizacao-dados/
     ├── gold/
     ├── jobs/                    # definição do Databricks Workflow (YAML exportado)
     ├── reconciliation/
-    ├── auditoria/                # detecção automática de anomalias no histórico de execução
+    ├── auditoria/               # detecção automática de anomalias no histórico de execução
     └── tests/                   # notebooks de validação técnica (ex.: teste de conectividade)
 ```
 
@@ -105,9 +105,9 @@ b3-modernizacao-dados/
 
 - O índice calculado é um **proxy simplificado**, não a metodologia oficial de um índice real da B3.
 - Databricks Free Edition: compute serverless apenas, sem SLA, uso não comercial, outbound restrito a domínios confiáveis (testado e confirmado compatível com `brapi.dev` e GitHub).
-- Comparação histórica (reconciliação): processada de 27/08 a 02/09, mas **genuinamente válida como prova de migração apenas a partir de 02/09** — bug de cache no KNIME invalidou o dado do lado legado entre 27/08 e 01/09 (ver ADR-16). Execução padronizada após o fechamento (**17h15**) para evitar divergência de preço intraday entre KNIME e Databricks.
+- Comparação histórica (reconciliação): processada de 27/08 a 03/09, mas **genuinamente válida como prova de migração apenas a partir de 02/09** — bug de cache no KNIME invalidou o dado do lado legado entre 27/08 e 01/09 (ver ADR-16). Execução padronizada após o fechamento (**17h15**) para evitar divergência de preço intraday entre KNIME e Databricks.
 - Mensagens dos alertas nativos (falha, duração) permanecem no template padrão do Databricks — decisão de escopo, não lacuna (ver ADR-13).
-- Job apresentou execução dupla, próxima uma da outra, em pelo menos 2 dias — sem impacto de dado (MERGE idempotente), causa não investigada.
+- Job apresentou execução dupla, próxima uma da outra, em pelo menos 2 dias — sem impacto de dado (MERGE idempotente), foi um processamento manual para teste.
 
 ## Possíveis evoluções futuras
 
