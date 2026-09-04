@@ -7,7 +7,7 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 ✅ MVP concluído — projeto apresentado com sucesso, aprovado para etapa final — última atualização: 01/09/2026
 
 - [x] Repositório estruturado, com Git folders conectando o Databricks ao GitHub
-- [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy — 6 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09)
+- [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy — 7 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09, 03/09)
 - [x] Teste de conectividade do Databricks Free Edition (API externa + GitHub)
 - [x] Catalog `poc_b3_modernizacao` e 6 schemas (landing, bronze, silver, gold, reconciliation, observability), com tags e descrição, criados via código
 - [x] Pipeline completo: Landing → Bronze → Silver → Gold (5 indicadores) → Reconciliação (D-1 automático) → Alerta de divergência
@@ -25,7 +25,7 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Documento de escalabilidade (4 → 500 tickers) e planilhas de custo — em `docs/anexos/`
 - [x] Auditoria automática de execuções (11 de 12 anomalias históricas com causa raiz investigada)
 - [x] Saúde operacional: 77 execuções, 100% sucesso, 0 gaps (ver `docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md` e ADR-15 para o mecanismo de auditoria)
-- [ ] Recalibração do limiar de duração do Job (aguardando observação de execuções agendadas com 6 Tasks)
+- [ ] Recalibração do limiar de duração do Job (5 min já superado em ao menos uma execução com as 7 Tasks — aguardando mais amostras antes de decidir novo valor)
 - [ ] Investigação da execução dupla do Job (observada em 28/08 e 01/09, sem impacto de dado)
 - [ ] Diagrama de arquitetura final (visual)
 
@@ -43,18 +43,9 @@ Simular o escopo de uma vaga real de modernização de dados: migração de pipe
 
 ## Arquitetura (visão geral)
 
-```
-[Fonte única]              [Legado simulado]         [Novo — Databricks]
-brapi.dev (API) ──┬──> KNIME (transforma,
-  4 tickers        │     calcula índice-proxy,
-                   │     grava CSV versionado por data)
-                   │
-                   └──> Volume UC (raw) ──> Bronze ──> Silver ──> Gold
-                                                                     │
-                                             [Reconciliação: Gold vs. saída do KNIME]
-                                                                     │
-                                                     [Alerta de divergência anormal]
-```
+![Diagrama de arquitetura do projeto B3](docs/diagrama-arquitetura.svg)
+
+Diagrama detalhado, com premissas e trade-offs de cada decisão, em [docs/architecture.md](docs/architecture.md).
 
 KNIME e Databricks consomem a **mesma fonte de forma independente** — o Databricks não lê o CSV de saída do KNIME. Essa decisão está detalhada na [ADR-01](docs/adr/adr-01-ingestao-independente-landing.md).
 
