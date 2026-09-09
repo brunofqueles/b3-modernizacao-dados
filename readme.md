@@ -4,32 +4,32 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 
 ## Status do projeto
 
-✅ MVP concluído — projeto apresentado com sucesso, aprovado para etapa final — última atualização: 04/09/2026
+✅ MVP concluído — projeto apresentado com sucesso, aprovado para etapa final — última atualização: 04/09/2026, 18 ADRs documentando cada decisão técnica
+
+**A partir desta versão, o projeto entra em fase de manutenção e validação — sem novo desenvolvimento planejado, exceto em caso de algo parar de funcionar.** Ver [documento de entrega](docs/entrega-projeto.md) para o resumo executivo de toda a jornada.
 
 - [x] Repositório estruturado, com Git folders conectando o Databricks ao GitHub
-- [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy — 7 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09, 03/09)
+- [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy — 8 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09, 03/09, 04/09)
 - [x] Teste de conectividade do Databricks Free Edition (API externa + GitHub)
 - [x] Catalog `poc_b3_modernizacao` e 6 schemas (landing, bronze, silver, gold, reconciliation, observability), com tags e descrição, criados via código
-- [x] Pipeline completo: Landing → Bronze → Silver → Gold (5 indicadores) → Reconciliação (D-1 automático) → Alerta de divergência
-- [x] Orquestração via Databricks Workflows (Job `pipeline_diario_b3`, **7 Tasks**, agendado dias úteis às 17h15)
-- [x] Observabilidade (tabela `observability.pipeline_runs`) com try/except completo nos 5 notebooks do pipeline
+- [x] Pipeline completo: Landing → Bronze → Silver → Gold (5 indicadores) → Reconciliação (D-1 automático) → Alerta de divergência → Auditoria automática
+- [x] Orquestração via Databricks Workflows (Job `pipeline_diario_b3`, **7 Tasks**, agendado dias úteis às 17h15, `modo_execucao` consistente em todas as Tasks)
+- [x] Observabilidade (tabela `observability.pipeline_runs`) com try/except completo nos 5 notebooks do pipeline core
 - [x] Alertas nativos (falha + duração, 2 e-mails com propósitos distintos) e alerta customizado de divergência anormal (limiar 1%)
 - [x] Databricks Secret Scope para credencial de e-mail (nunca em texto no código)
-- [x] AI/BI Dashboard publicado — **2 páginas**: "Visão Geral" (executiva) e "Observabilidade Técnica" (histórico de execuções, anomalias, gaps, indicadores de saúde)
+- [x] AI/BI Dashboard publicado — **2 páginas**: "Visão Geral" (executiva) e "Observabilidade Técnica" (histórico de execuções, anomalias categorizadas, gaps, indicadores de saúde)
 - [x] Genie Space configurado e testado (acesso curado, instruções de domínio, 3 exemplos)
+- [x] Diagrama de arquitetura visual (`docs/diagrama-arquitetura.svg`)
 - [x] ADR-16: bug de cache no KNIME descoberto e corrigido — janela de reconciliação genuinamente válida a partir de 02/09
-- [x] Janela de reconciliação processada (27/08 a 03/09) — **válida como prova de migração apenas a partir de 02/09** (dias anteriores afetados por bug de cache do KNIME, causa raiz corrigida)
-- [x] 17 ADRs documentando cada decisão técnica
+- [x] Janela de reconciliação processada (27/08 a 04/09) — **válida como prova de migração apenas a partir de 02/09** (dias anteriores afetados por bug de cache do KNIME, causa raiz corrigida)
 - [x] Simulação de FinOps (armazenamento + consumo de DBU), com identificação de gargalo real de escalabilidade
 - [x] [Lições aprendidas](docs/licoes-aprendidas.md)
 - [x] Documento de escalabilidade (4 → 500 tickers) e planilhas de custo — em `docs/anexos/`
-- [x] Auditoria automática de execuções (11 de 12 anomalias históricas com causa raiz investigada)
-- [x] Saúde operacional: 77 execuções, 100% sucesso, 0 gaps (ver `docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md` e ADR-15 para o mecanismo de auditoria)
-- [x] Diagrama de arquitetura final (visual)
-- [x] Investigação da execução dupla do Job (observada em 28/08 e 01/09, sem impacto de dado)
+- [x] Auditoria automática de execuções, com notebook dedicado de investigação (`08_investigacao_anomalias`) e categorização Teste vs. Operacional das anomalias
+- [x] Saúde operacional consultável em tempo real na página "Observabilidade Técnica" do Dashboard
 - [ ] Recalibração do limiar de duração do Job (5 min já superado em ao menos uma execução com as 7 Tasks — aguardando mais amostras antes de decidir novo valor)
 
-> **Nota sobre a janela de reconciliação:** a comparação histórica entre KNIME e Databricks foi processada de 27/08 a 02/09, mas **só é genuinamente válida como prova de migração a partir de 02/09/2026** — um bug de cache no KNIME (ver [ADR-16](docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md)) manteve o resultado congelado de 27/08 em todas as execuções seguintes até 01/09, sem que o `GET Request` capturasse dado novo nesse período. As reconciliações desse intervalo permanecem no histórico, com causa raiz corrigida, mas não provam nem invalidam a migração.
+> **Nota sobre a janela de reconciliação:** a comparação histórica entre KNIME e Databricks foi processada de 27/08 a 04/09, mas **só é genuinamente válida como prova de migração a partir de 02/09/2026** — um bug de cache no KNIME (ver [ADR-16](docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md)) manteve o resultado congelado de 27/08 em todas as execuções seguintes até 01/09, sem que o `GET Request` capturasse dado novo nesse período. As reconciliações desse intervalo permanecem no histórico, com causa raiz corrigida, mas não provam nem invalidam a migração.
 
 ## Objetivo
 
@@ -65,7 +65,7 @@ b3-modernizacao-dados/
     ├── gold/
     ├── jobs/                    # definição do Databricks Workflow (YAML exportado)
     ├── reconciliation/
-    ├── auditoria/               # detecção automática de anomalias no histórico de execução
+    ├── auditoria/                # detecção automática de anomalias no histórico de execução
     └── tests/                   # notebooks de validação técnica (ex.: teste de conectividade)
 ```
 
@@ -74,6 +74,7 @@ b3-modernizacao-dados/
 1. **KNIME**: abrir `knime/b3_pipeline_legado.knwf` no KNIME Analytics Platform, ajustar a data nos CSV Writers, executar "Execute all". Gera dois CSVs versionados por data em `knime/`, e exportar novamente o `.knwf`.
 2. **Databricks**: conectar o workspace ao repositório via Git folder, dar Pull. O pipeline completo roda via Job `pipeline_diario_b3` (agendado dias úteis às 17h15) ou manualmente, notebook por notebook, na ordem `setup/00_setup_catalog` → `setup/01_utilitarios_pipeline` → `landing/01_ingestao_landing` → `bronze/02_bronze` → `silver/03_silver` → `gold/04_gold` → `reconciliation/05_reconciliacao` → `reconciliation/06_alerta_divergencia` → `auditoria/07_auditoria_execucoes`.
 3. **Camada de consumo**: AI/BI Dashboard "B3 - Modernização de Dados" e Genie Space "Genie B3 - Modernização de Dados", ambos no workspace do Databricks, atualizando automaticamente conforme novos dados entram na Gold e na Reconciliação.
+4. **Investigação de anomalias** (manual, sob demanda): quando o Dashboard mostrar uma anomalia "Aguardando investigação", rodar `auditoria/08_investigacao_anomalias` para registrar a causa raiz — não faz parte do fluxo automatizado do Job.
 
 ## Documentação completa
 
@@ -100,19 +101,20 @@ b3-modernizacao-dados/
 - [ADR-15 — Auditoria automática de execuções, preservando investigação humana](docs/adr/adr-15-auditoria-automatica-execucoes.md)
 - [ADR-16 — Bug de cache no KNIME: dados congelados invalidam a reconciliação de 27/08 a 01/09](docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md)
 - [ADR-17 — Dashboard: correções de dado, causa raiz dinâmica e página de observabilidade técnica](docs/adr/adr-17-dashboard-correcoes-observabilidade-tecnica.md)
+- [ADR-18 — Correção de modo_execucao e categorização de anomalias (Teste vs. Operacional)](docs/adr/adr-18-correcao-modo-execucao-categorizacao-anomalias.md)
 
 ## Limitações conhecidas
 
 - O índice calculado é um **proxy simplificado**, não a metodologia oficial de um índice real da B3.
 - Databricks Free Edition: compute serverless apenas, sem SLA, uso não comercial, outbound restrito a domínios confiáveis (testado e confirmado compatível com `brapi.dev` e GitHub).
-- Comparação histórica (reconciliação): processada de 27/08 a 03/09, mas **genuinamente válida como prova de migração apenas a partir de 02/09** — bug de cache no KNIME invalidou o dado do lado legado entre 27/08 e 01/09 (ver ADR-16). Execução padronizada após o fechamento (**17h15**) para evitar divergência de preço intraday entre KNIME e Databricks.
+- Comparação histórica (reconciliação): processada de 27/08 a 02/09, mas **genuinamente válida como prova de migração apenas a partir de 02/09** — bug de cache no KNIME invalidou o dado do lado legado entre 27/08 e 01/09 (ver ADR-16). Execução padronizada após o fechamento (**17h15**) para evitar divergência de preço intraday entre KNIME e Databricks.
 - Mensagens dos alertas nativos (falha, duração) permanecem no template padrão do Databricks — decisão de escopo, não lacuna (ver ADR-13).
-- Job apresentou execução dupla, próxima uma da outra, em pelo menos 2 dias — sem impacto de dado (MERGE idempotente), foi um processamento manual para teste.
+- Job apresentou execução dupla, próxima uma da outra, em pelo menos 3 dias — **investigado e explicado em todos os casos** (reprocessamentos manuais legítimos, ver ADR-15), sem impacto de dado (MERGE idempotente).
+- `06_alerta_divergencia` não tem try/except nem observabilidade — único notebook do pipeline sem esse registro (ver `architecture.md`, dívida técnica).
 
 ## Possíveis evoluções futuras
 
 - Adoção de **Databricks Asset Bundles (DAB)** para deploy e CI/CD estruturado entre ambientes — não implementado neste projeto por restrição de prazo, mas reconhecido como padrão mais robusto para produção.
 - Agente de automação de commit/PR via API do GitHub (mecânica já validada em projeto anterior) — candidato a extra, condicionado a sobra de tempo no cronograma.
-- Propagação consistente de `modo_execucao` via Widget em todos os notebooks (hoje só `01` e `02` têm esse Widget).
 - Governança de acesso (RBAC real no Unity Catalog) — hoje documentada como modelo pretendido.
 - Escalabilidade de 4 para uma lista maior de tickers — ver documento de referência técnica dedicado (`docs/anexos/`). Gargalo identificado: chamadas de API sequenciais na ingestão seriam o principal driver de tempo/custo em escala, não o volume de dado (ver [ADR-14](docs/adr/adr-14-finops-armazenamento-dbu.md)).
