@@ -55,3 +55,7 @@ Todo o processo de decisão está documentado em **18 ADRs** (Architecture Decis
 ## Nota final
 
 Este projeto foi construído com uma prioridade deliberada: **honestidade técnica acima de aparência de perfeição**. Bugs reais (cache do KNIME, formatação de percentual duplicada, configuração de Task ausente) estão documentados como aconteceram, não escondidos ou reescritos como se nunca tivessem existido. Limitações conhecidas (índice-proxy simplificado, Free Edition, um caso de anomalia sem causa confirmada) permanecem registradas, não silenciadas. Essa é a entrega — não um sistema que finge não ter tido problemas, mas um que mostra como problemas reais foram encontrados, investigados e resolvidos.
+
+## Addendum — primeiro incidente real de manutenção (10/09/2026)
+
+Seis dias após esta entrega, a fase de manutenção teve seu primeiro caso real: a reconciliação travava o pipeline inteiro sempre que o CSV do KNIME não existia para o dia — algo que aconteceu em produção de verdade (um feriado, um dia sem execução manual), não em teste. Corrigido no mesmo padrão do resto do projeto: causa identificada, decisão documentada (ADR-19), correção testada nos dois caminhos antes de ser considerada resolvida. Também nessa investigação, um gap de execução (08/09) ficou sem causa confirmada, registrado honestamente como tal, não escondido. Ver [ADR-19](adr/adr-19-resiliencia-reconciliacao-csv-ausente.md) para o detalhe completo.
