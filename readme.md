@@ -4,12 +4,12 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 
 ## Status do projeto
 
-✅ MVP concluído — projeto apresentado com sucesso, aprovado para etapa final — última atualização: 04/09/2026, 18 ADRs documentando cada decisão técnica
+✅ MVP concluído — projeto apresentado com sucesso, aprovado para etapa final — última atualização: 10/09/2026, 19 ADRs documentando cada decisão técnica
 
-**A partir desta versão, o projeto entra em fase de manutenção e validação — sem novo desenvolvimento planejado, exceto em caso de algo parar de funcionar.** Ver [documento de entrega](docs/entrega-projeto.md) para o resumo executivo de toda a jornada.
+**A partir de 04/09, o projeto está em fase de manutenção e validação — sem novo desenvolvimento planejado, exceto em caso de falha real.** Essa fase já teve seu primeiro caso real: a reconciliação travando o pipeline por ausência de CSV do KNIME, corrigido em produção — ver [ADR-19](docs/adr/adr-19-resiliencia-reconciliacao-csv-ausente.md). Resumo executivo de toda a jornada em [docs/entrega-projeto.md](docs/entrega-projeto.md).
 
 - [x] Repositório estruturado, com Git folders conectando o Databricks ao GitHub
-- [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy — 8 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09, 03/09, 04/09)
+- [x] Workflow KNIME funcional (sistema legado simulado): busca cotações, calcula retorno diário e índice-proxy — 9 execuções reais (26/08, 27/08, 28/08, 31/08, 01/09, 02/09, 03/09, 04/09, 09/09)
 - [x] Teste de conectividade do Databricks Free Edition (API externa + GitHub)
 - [x] Catalog `poc_b3_modernizacao` e 6 schemas (landing, bronze, silver, gold, reconciliation, observability), com tags e descrição, criados via código
 - [x] Pipeline completo: Landing → Bronze → Silver → Gold (5 indicadores) → Reconciliação (D-1 automático) → Alerta de divergência → Auditoria automática
@@ -27,7 +27,10 @@ Projeto de portfólio que simula a modernização de um pipeline de dados de mer
 - [x] Documento de escalabilidade (4 → 500 tickers) e planilhas de custo — em `docs/anexos/`
 - [x] Auditoria automática de execuções, com notebook dedicado de investigação (`08_investigacao_anomalias`) e categorização Teste vs. Operacional das anomalias
 - [x] Saúde operacional consultável em tempo real na página "Observabilidade Técnica" do Dashboard
-- [ ] Recalibração do limiar de duração do Job (5 min já superado em ao menos uma execução com as 7 Tasks — aguardando mais amostras antes de decidir novo valor)
+- [x] Resiliência da reconciliação a CSV ausente do KNIME — não derruba mais o pipeline (ADR-19), corrigido em produção real após 2 ocorrências (07/09, 09/09)
+- [x] `06_alerta_divergencia` com observabilidade completa (try/except + registro), lacuna fechada
+- [ ] Recalibração do limiar de duração do Job (5 min já superado em mais de uma execução manual — aguardando mais amostras antes de decidir novo valor)
+- [ ] Gap de execução em 08/09/2026 sem causa confirmada (monitorando, não bloqueante)
 
 > **Nota sobre a janela de reconciliação:** a comparação histórica entre KNIME e Databricks foi processada de 27/08 a 04/09, mas **só é genuinamente válida como prova de migração a partir de 02/09/2026** — um bug de cache no KNIME (ver [ADR-16](docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md)) manteve o resultado congelado de 27/08 em todas as execuções seguintes até 01/09, sem que o `GET Request` capturasse dado novo nesse período. As reconciliações desse intervalo permanecem no histórico, com causa raiz corrigida, mas não provam nem invalidam a migração.
 
@@ -72,7 +75,7 @@ b3-modernizacao-dados/
 ## Como rodar
 
 1. **KNIME**: abrir `knime/b3_pipeline_legado.knwf` no KNIME Analytics Platform, ajustar a data nos CSV Writers, executar "Execute all". Gera dois CSVs versionados por data em `knime/`, e exportar novamente o `.knwf`.
-2. **Databricks**: conectar o workspace ao repositório via Git folder, dar Pull. O pipeline completo roda via Job `pipeline_diario_b3` (agendado dias úteis às 17h15) ou manualmente, notebook por notebook, na ordem `setup/00_setup_catalog` → `setup/01_utilitarios_pipeline` → `landing/01_ingestao_landing` → `bronze/02_bronze` → `silver/03_silver` → `gold/04_gold` → `reconciliation/05_reconciliacao` → `reconciliation/06_alerta_divergencia` → `auditoria/07_auditoria_execucoes`.
+2. **Databricks**: conectar o workspace ao repositório via Git folder, dar Pull. O pipeline completo roda via Job `pipeline_diario_b3` (agendado dias úteis às 17h15) ou manualmente, notebook por notebook, na ordem `setup/00_setup_catalog` → `setup/01_utilitarios_pipeline` → `landing/01_ingestao_landing` → `bronze/02_bronze` → `silver/03_silver` → `gold/04_gold` → `reconciliation/05_reconciliacao` → `reconciliation/06_alerta_divergencia` → `auditoria/07_auditoria_execucoes`. `auditoria/09_verificacao_pos_deploy` fica disponível para checagem manual de estado, fora do fluxo automatizado.
 3. **Camada de consumo**: AI/BI Dashboard "B3 - Modernização de Dados" e Genie Space "Genie B3 - Modernização de Dados", ambos no workspace do Databricks, atualizando automaticamente conforme novos dados entram na Gold e na Reconciliação.
 4. **Investigação de anomalias** (manual, sob demanda): quando o Dashboard mostrar uma anomalia "Aguardando investigação", rodar `auditoria/08_investigacao_anomalias` para registrar a causa raiz — não faz parte do fluxo automatizado do Job.
 
@@ -102,6 +105,7 @@ b3-modernizacao-dados/
 - [ADR-16 — Bug de cache no KNIME: dados congelados invalidam a reconciliação de 27/08 a 01/09](docs/adr/adr-16-bug-cache-knime-janela-reconciliacao.md)
 - [ADR-17 — Dashboard: correções de dado, causa raiz dinâmica e página de observabilidade técnica](docs/adr/adr-17-dashboard-correcoes-observabilidade-tecnica.md)
 - [ADR-18 — Correção de modo_execucao e categorização de anomalias (Teste vs. Operacional)](docs/adr/adr-18-correcao-modo-execucao-categorizacao-anomalias.md)
+- [ADR-19 — Resiliência a CSV ausente do KNIME: reconciliação não deve derrubar o pipeline](docs/adr/adr-19-resiliencia-reconciliacao-csv-ausente.md)
 
 ## Limitações conhecidas
 
@@ -110,7 +114,8 @@ b3-modernizacao-dados/
 - Comparação histórica (reconciliação): processada de 27/08 a 02/09, mas **genuinamente válida como prova de migração apenas a partir de 02/09** — bug de cache no KNIME invalidou o dado do lado legado entre 27/08 e 01/09 (ver ADR-16). Execução padronizada após o fechamento (**17h15**) para evitar divergência de preço intraday entre KNIME e Databricks.
 - Mensagens dos alertas nativos (falha, duração) permanecem no template padrão do Databricks — decisão de escopo, não lacuna (ver ADR-13).
 - Job apresentou execução dupla, próxima uma da outra, em pelo menos 3 dias — **investigado e explicado em todos os casos** (reprocessamentos manuais legítimos, ver ADR-15), sem impacto de dado (MERGE idempotente).
-- `06_alerta_divergencia` não tem try/except nem observabilidade — único notebook do pipeline sem esse registro (ver `architecture.md`, dívida técnica).
+- Reconciliação resiliente a CSV ausente do KNIME desde 10/09 (`status = pendente_knime`, não derruba as Tasks seguintes) — ver ADR-19.
+- Gap de execução em 08/09/2026 sem causa confirmada (agendamento verificado ativo, sem log de infraestrutura disponível na Free Edition para diagnosticar).
 
 ## Possíveis evoluções futuras
 
